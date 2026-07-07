@@ -27,11 +27,11 @@ export default function Hero() {
         animate="visible"
       >
         <motion.h1 className="hero-title" variants={itemVariants}>
-          <span>Chemy LMS</span> <br /> Learning Excellence
+          <span>MBK Technology</span> <br /> Knowledge to Success
         </motion.h1>
-        
+
         <motion.p className="hero-subtitle" variants={itemVariants}>
-          Chemy LMS is a pioneering learning management system driving professional growth, state-of-the-art technical education, and interactive course management.
+          MBK Technology is a pioneering multi-divisional conglomerate driving sustainable growth, state-of-the-art engineering solutions, and digital transformation across Tamil Nadu.
         </motion.p>
 
         <motion.div className="hero-buttons" variants={itemVariants}>

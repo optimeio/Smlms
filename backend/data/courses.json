@@ -1,15 +1,5 @@
 [
   {
-    "id": "1",
-    "title": "Embedded Systems",
-    "content": "Learn the fundamentals of Embedded Systems, microcontrollers, assembly, and C programming for hardware interfaces.",
-    "image": "",
-    "ppt": "",
-    "pptName": "",
-    "video": "",
-    "videoName": ""
-  },
-  {
     "id": "2",
     "title": "Electric Vehicles",
     "content": "Explore Electric Vehicle powertrain, battery management systems, motor control, and EV architecture.",

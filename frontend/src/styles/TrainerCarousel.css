@@ -1,0 +1,326 @@
+/* ==================== TRAINER CAROUSEL STYLES ==================== */
+
+.trainer-carousel-section {
+  padding: 80px 0;
+  background: 
+    radial-gradient(circle at 90% 10%, rgba(139, 92, 246, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 10% 90%, rgba(255, 107, 0, 0.04) 0%, transparent 40%),
+    #FFFDFB;
+  border-top: 1px solid rgba(254, 215, 170, 0.2);
+  border-bottom: 1px solid rgba(254, 215, 170, 0.2);
+  overflow: hidden;
+}
+
+.trainer-section-header {
+  text-align: center;
+  margin-bottom: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.trainer-section-title {
+  font-size: 38px;
+  font-weight: 850;
+  line-height: 1.2;
+  color: #0F172A;
+  margin: 15px 0;
+  letter-spacing: -0.8px;
+}
+
+.highlight-text-blue {
+  color: #8B5CF6;
+  position: relative;
+  display: inline-block;
+  font-weight: 900;
+}
+
+.trainer-section-subtitle {
+  font-size: 16px;
+  color: #64748B;
+  line-height: 1.6;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+/* Edge-Fading Infinite Scroll Container */
+.marquee-outer-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+  width: 100vw;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  padding: 10px 0;
+  /* Premium fade masks on left and right edges */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+.marquee-content {
+  display: flex;
+  gap: 24px;
+  width: max-content;
+  padding: 10px 12px;
+}
+
+/* Left & Right animations */
+.animate-marquee-left {
+  animation: scroll-left 50s linear infinite;
+}
+
+.animate-marquee-right {
+  animation: scroll-right 50s linear infinite;
+}
+
+/* Pause scroll when user hovers cards */
+.marquee-track:hover .marquee-content {
+  animation-play-state: paused;
+}
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scroll-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* --- TRAINER CARD DESIGN --- */
+.trainer-card-wrapper {
+  width: 380px;
+  flex-shrink: 0;
+  perspective: 1000px;
+}
+
+.trainer-card-inner {
+  position: relative;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(241, 245, 249, 0.9);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.trainer-card-inner:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(255, 107, 0, 0.08);
+  border-color: rgba(254, 215, 170, 0.5);
+  background: #FFFFFF;
+}
+
+/* Radial Glow Spot inside card */
+.trainer-glow-spot {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.12;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.trainer-card-inner:hover .trainer-glow-spot {
+  opacity: 0.22;
+}
+
+/* Header Area */
+.trainer-card-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.trainer-avatar-glow {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.trainer-meta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trainer-card-name {
+  font-size: 18px;
+  font-weight: 850;
+  color: #0F172A;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.trainer-rating-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.trainer-star {
+  color: #F59E0B;
+}
+
+.trainer-rating {
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.trainer-students {
+  color: #94A3B8;
+}
+
+/* Body Area */
+.trainer-card-body {
+  margin-bottom: 20px;
+}
+
+.trainer-card-role {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.trainer-exp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(254, 215, 170, 0.25);
+  color: #EA580C;
+  padding: 6px 12px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid rgba(254, 215, 170, 0.4);
+}
+
+.exp-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Skills list */
+.trainer-skills-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.trainer-skill-tag {
+  background-color: #F8FAFC;
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  transition: all 0.2s ease;
+}
+
+.trainer-card-inner:hover .trainer-skill-tag {
+  background-color: #F1F5F9;
+  color: #475569;
+}
+
+/* ==================== RESPONSIVENESS ==================== */
+@media (max-width: 1024px) {
+  .trainer-section-title {
+    font-size: 32px;
+  }
+  .trainer-card-wrapper {
+    width: 340px;
+  }
+}
+
+@media (max-width: 768px) {
+  .trainer-carousel-section {
+    padding: 60px 0;
+  }
+  
+  .trainer-section-title {
+    font-size: 28px;
+  }
+  
+  .trainer-section-subtitle {
+    font-size: 14.5px;
+    padding: 0 16px;
+  }
+  
+  .marquee-outer-container {
+    gap: 20px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+  
+  .trainer-card-wrapper {
+    width: 290px;
+  }
+  
+  .trainer-card-inner {
+    padding: 20px;
+  }
+  
+  .trainer-avatar-glow {
+    width: 48px;
+    height: 48px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+  
+  .trainer-card-name {
+    font-size: 16px;
+  }
+  
+  .trainer-card-role {
+    font-size: 13px;
+  }
+  
+  .animate-marquee-left,
+  .animate-marquee-right {
+    animation-duration: 35s; /* Slightly faster feel on mobile screens */
+  }
+}

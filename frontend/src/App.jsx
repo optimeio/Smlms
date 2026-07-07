@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import './App.css';
 
 import Home from './pages/Home';
+import Courses from './pages/Courses';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import StudentSignup from './pages/StudentSignup';
@@ -29,6 +30,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/courses" element={<Courses />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register/student" element={<StudentSignup />} />

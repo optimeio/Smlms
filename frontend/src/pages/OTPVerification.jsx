@@ -1,40 +1,48 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../styles/Auth.css';
 
-export default function OTPVerification() {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [timeLeft, setTimeLeft] = useState(120);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const inputRefs = useRef([]);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const email = location.state?.email || '';
+const OTP_LENGTH = 6;
+const RESEND_TIMER = 120; // seconds
 
+export default function OTPVerification() {
+  const navigate = useNavigate();
+  const email = sessionStorage.getItem('reset_email') || '';
+
+  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
+  const [timeLeft, setTimeLeft] = useState(RESEND_TIMER);
+  const [canResend, setCanResend] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const inputRefs = useRef([]);
+
+  /* Redirect if no email in session */
   useEffect(() => {
-    if (timeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setTimeLeft(t => t - 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    if (!email) navigate('/forgot-password');
+  }, [email, navigate]);
+
+  /* Countdown timer */
+  useEffect(() => {
+    if (timeLeft <= 0) { setCanResend(true); return; }
+    const id = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearTimeout(id);
   }, [timeLeft]);
 
+  const formatTime = (s) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  /* OTP input handlers */
   const handleChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
-
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    const next = [...otp];
+    next[index] = value.slice(-1); // only last char
+    setOtp(next);
+    if (value && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
   };
 
   const handleKeyDown = (index, e) => {
@@ -43,74 +51,70 @@ export default function OTPVerification() {
     }
   };
 
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+    if (!pasted) return;
+    const next = [...otp];
+    pasted.split('').forEach((ch, i) => { next[i] = ch; });
+    setOtp(next);
+    inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
+    e.preventDefault();
+  };
+
+  /* Submit OTP */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    const otpCode = otp.join('');
-
-    if (otpCode.length !== 6) {
-      setError('Please enter all 6 digits');
-      setIsLoading(false);
+    const code = otp.join('');
+    if (code.length < OTP_LENGTH) {
+      setError('Please enter all 6 digits.');
       return;
     }
-
+    setError('');
+    setIsVerifying(true);
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+      const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp: otpCode }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: code }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setIsVerified(true);
-        // Navigate to reset password after 2 seconds
-        setTimeout(() => {
-          navigate('/reset-password', { state: { email, otp: otpCode } });
-        }, 2000);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || 'Verification failed. Please try again.');
       } else {
-        setError(data.message || 'Invalid OTP. Please try again.');
+        setSuccess('Code verified! Redirecting to reset password…');
+        setTimeout(() => navigate('/reset-password'), 1500);
       }
-    } catch (err) {
-      console.error('Error:', err);
-      setError('Network error. Please try again.');
+    } catch {
+      setError('Unable to reach the server. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
     }
   };
 
+  /* Resend OTP */
   const handleResend = async () => {
+    if (!canResend || isResending) return;
     setError('');
-    setIsLoading(true);
-    setTimeLeft(120);
-    setOtp(['', '', '', '', '', '']);
-    inputRefs.current[0]?.focus();
-
+    setIsResending(true);
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-
-      const data = await response.json();
-      if (data.success) {
-        setError('New OTP sent to your email');
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || 'Failed to resend code.');
       } else {
-        setError('Failed to resend OTP. Please try again.');
+        setOtp(Array(OTP_LENGTH).fill(''));
+        setTimeLeft(RESEND_TIMER);
+        setCanResend(false);
+        inputRefs.current[0]?.focus();
       }
-    } catch (err) {
-      console.error('Error:', err);
-      setError('Network error. Please try again.');
+    } catch {
+      setError('Unable to reach the server.');
     } finally {
-      setIsLoading(false);
+      setIsResending(false);
     }
   };
 
@@ -124,105 +128,126 @@ export default function OTPVerification() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          <Link
+            to="/forgot-password"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontSize: '13.5px', color: 'var(--gray-500)', textDecoration: 'none',
+              marginBottom: '20px', fontWeight: '600',
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+            <span>Back</span>
+          </Link>
+
           <div className="auth-header">
-            <h1 className="auth-title">Verify OTP</h1>
-            <p className="auth-subtitle">Enter the 6-digit code sent to your email</p>
+            <div style={{ fontSize: '44px', marginBottom: '12px' }}>📧</div>
+            <h1 className="auth-title">Verify Your Email</h1>
+            <p className="auth-subtitle" style={{ lineHeight: 1.6 }}>
+              We sent a 6-digit code to<br />
+              <strong style={{ color: 'var(--black-soft)' }}>{email}</strong>
+            </p>
           </div>
 
-          {isVerified ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <div style={{ textAlign: 'center', padding: '10px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '20px' }}>✅</div>
-                <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>OTP Verified</h2>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>
-                  Redirecting to password reset page...
-                </p>
-              </div>
-            </motion.div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              {error && (
-                <div style={{
-                  backgroundColor: error.includes('sent') ? '#efe' : '#fee',
-                  border: error.includes('sent') ? '1px solid #cfc' : '1px solid #fcc',
-                  color: error.includes('sent') ? '#3c3' : '#c33',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  marginBottom: '20px',
-                  fontSize: '14px'
-                }}>
-                  {error}
-                </div>
-              )}
-
-              <div className="otp-inputs">
-                {otp.map((digit, index) => (
-                  <motion.input
-                    key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
-                    type="text"
-                    className="otp-input"
-                    value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    maxLength="1"
-                    whileFocus={{ scale: 1.1 }}
-                    transition={{ type: 'spring' }}
-                    disabled={isLoading}
-                  />
-                ))}
-              </div>
-
-              <div className="otp-timer">
-                Time remaining: <strong>{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}</strong>
-                <br />
-                {timeLeft < 120 && timeLeft > 0 && (
-                  <span>
-                    Didn't receive the code?{' '}
-                    <span
-                      className="resend"
-                      onClick={handleResend}
-                      style={{ cursor: timeLeft > 0 ? 'pointer' : 'not-allowed', opacity: timeLeft > 0 ? 1 : 0.5 }}
-                    >
-                      Resend OTP
-                    </span>
-                  </span>
-                )}
-                {timeLeft <= 0 && (
-                  <span>
-                    Code expired?{' '}
-                    <span
-                      className="resend"
-                      onClick={handleResend}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      Resend OTP
-                    </span>
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                className="auth-button"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Verifying...' : 'Verify OTP'}
-              </button>
-
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                <Link to="/login" style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600 }}>
-                  Back to Login
-                </Link>
-              </div>
-            </form>
+          {error && (
+            <div style={{
+              background: '#fff1f2', color: '#c41e3a', padding: '12px 16px',
+              borderRadius: '8px', marginBottom: '16px', fontSize: '14px',
+              fontWeight: 500, border: '1px solid #fecdd3',
+            }}>
+              ⚠️ {error}
+            </div>
           )}
+          {success && (
+            <div style={{
+              background: '#f0fdf4', color: '#16a34a', padding: '12px 16px',
+              borderRadius: '8px', marginBottom: '16px', fontSize: '14px',
+              fontWeight: 600, border: '1px solid #bbf7d0',
+            }}>
+              ✅ {success}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            {/* OTP boxes */}
+            <div className="otp-inputs" onPaste={handlePaste}>
+              {otp.map((digit, index) => (
+                <motion.input
+                  key={index}
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  className="otp-input"
+                  value={digit}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  maxLength="1"
+                  autoComplete="off"
+                  whileFocus={{ scale: 1.1, borderColor: '#C41E3A' }}
+                  style={{
+                    borderColor: digit ? '#C41E3A' : undefined,
+                    color: digit ? '#C41E3A' : undefined,
+                    fontWeight: digit ? '800' : undefined,
+                  }}
+                  transition={{ type: 'spring', stiffness: 400 }}
+                  disabled={isVerifying}
+                />
+              ))}
+            </div>
+
+            {/* Timer & resend */}
+            <div className="otp-timer" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              {!canResend ? (
+                <span style={{ color: 'var(--gray-500)', fontSize: '14px' }}>
+                  Code expires in{' '}
+                  <strong style={{ color: timeLeft <= 30 ? '#C41E3A' : 'inherit' }}>
+                    {formatTime(timeLeft)}
+                  </strong>
+                </span>
+              ) : (
+                <span style={{ fontSize: '14px', color: 'var(--gray-600)' }}>
+                  Didn't receive the code?{' '}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={isResending}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--red-primary)',
+                      fontWeight: 700, cursor: 'pointer', fontSize: '14px', padding: 0,
+                    }}
+                  >
+                    {isResending ? 'Sending…' : 'Resend Code'}
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="auth-button"
+              disabled={isVerifying || otp.join('').length < OTP_LENGTH}
+              style={{ opacity: otp.join('').length < OTP_LENGTH ? 0.65 : 1 }}
+            >
+              {isVerifying ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{
+                    width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.4)',
+                    borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite',
+                    display: 'inline-block',
+                  }} />
+                  Verifying…
+                </span>
+              ) : 'Verify Code'}
+            </button>
+          </form>
         </motion.div>
       </div>
       <Footer />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   );
 }

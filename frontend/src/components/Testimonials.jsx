@@ -7,7 +7,7 @@ export default function Testimonials() {
       name: 'Dr. Ramesh K.',
       role: 'Director, Apex Industries (Chennai)',
       avatar: 'RK',
-      text: 'The SM Groups transformed our manufacturing operations with their custom automation systems. Their mechanical engineering precision is top-notch!',
+      text: 'MBK Technology transformed our manufacturing operations with their custom automation systems. Their mechanical engineering precision is top-notch!',
       rating: 5
     },
     {
@@ -21,7 +21,7 @@ export default function Testimonials() {
       name: 'Nirmala Devi',
       role: 'Founder, Creative Tech Corp',
       avatar: 'ND',
-      text: 'We partnered with SM Groups for IT system development and brand management. Exceptional scaling roadmap, design, and execution.',
+      text: 'We partnered with MBK Technology for IT system development and brand management. Exceptional scaling roadmap, design, and execution.',
       rating: 5
     },
   ];
