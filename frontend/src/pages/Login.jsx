@@ -193,6 +193,7 @@ export default function Login() {
       if (!response.ok) {
         setServerError(data.message || 'Invalid email or password.');
       } else {
+
         setIsSuccess(true);
         localStorage.setItem('user', JSON.stringify(data.user));
         setTimeout(() => {

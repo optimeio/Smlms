@@ -13,6 +13,51 @@ import {
   BarElement
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import {
+  GraduationCap,
+  Home,
+  BookOpen,
+  Video,
+  BarChart3,
+  ClipboardList,
+  Award,
+  Users,
+  Presentation,
+  UserCog,
+  Building2,
+  User,
+  Settings,
+  LogOut,
+  Menu,
+  Search,
+  Bell,
+  ChevronDown,
+  Pencil,
+  BadgeCheck,
+  Phone,
+  Mail,
+  School,
+  Star,
+  TrendingUp,
+  Calendar,
+  Code2,
+  Layers,
+  ArrowRight,
+  Hash,
+  MapPin,
+  Landmark,
+  Trophy,
+  RefreshCw,
+  Clock,
+  ArrowUpRight,
+  FileText,
+  FileQuestion,
+  NotebookPen,
+  CalendarDays,
+  Bot,
+  ShieldCheck,
+  LayoutDashboard,
+} from "lucide-react";
 import '../styles/Dashboard.css';
 
 ChartJS.register(
@@ -53,6 +98,358 @@ const ProgressRing = ({ percentage }) => {
     </div>
   );
 };
+
+const sidebarItems = [
+  { icon: Home, label: "Dashboard" },
+  { icon: BookOpen, label: "My Courses" },
+  { icon: Video, label: "Live Classes" },
+  { icon: ClipboardList, label: "Assignments" },
+  { icon: Award, label: "Certificates" },
+  { icon: Users, label: "Students Directory" },
+  { icon: UserCog, label: "Trainers Directory" },
+  { icon: Building2, label: "Companies Directory" },
+  { icon: User, label: "Profile" },
+  { icon: Settings, label: "Settings" },
+];
+
+const statCards = [
+  {
+    icon: BookOpen,
+    iconBg: "bg-violet-650",
+    value: "12",
+    label: "Courses Enrolled",
+    sub: "Active Courses",
+    subColor: "text-violet-600",
+  },
+  {
+    icon: Award,
+    iconBg: "bg-emerald-500",
+    value: "08",
+    label: "Certificates Earned",
+    sub: "View Certificates",
+    subColor: "text-emerald-600",
+  },
+  {
+    icon: TrendingUp,
+    iconBg: "bg-orange-500",
+    value: "78%",
+    label: "Learning Progress",
+    sub: "Keep Learning",
+    subColor: "text-orange-500",
+  },
+  {
+    icon: Calendar,
+    iconBg: "bg-blue-500",
+    value: "21 Days",
+    label: "Current Streak",
+    sub: "You're Doing Great!",
+    subColor: "text-blue-500",
+  },
+  {
+    icon: Star,
+    iconBg: "bg-rose-500",
+    value: "1,250",
+    label: "Skill Points",
+    sub: "Keep Growing",
+    subColor: "text-rose-500",
+  },
+];
+
+const skills = ["React", "Python", "JavaScript", "Node.js", "MongoDB", "HTML", "CSS", "Git"];
+
+const academicDetails = [
+  { icon: Building2, label: "College", value: "Mahendra Institution" },
+  { icon: Code2, label: "Department", value: "Computer Science Engineering" },
+  { icon: Layers, label: "Academic Year", value: "IV Year" },
+  { icon: ClipboardList, label: "Register Number", value: "MIU20CS123" },
+];
+
+const academicRows = [
+  { icon: GraduationCap, label: "College", value: "Mahendra Institution" },
+  { icon: Code2, label: "Department", value: "Computer Science Engineering" },
+  { icon: Calendar, label: "Academic Year", value: "IV Year" },
+  { icon: Hash, label: "Register Number", value: "MIU20CS123" },
+];
+
+const achievements = [
+  {
+    icon: Award,
+    iconBg: "bg-violet-100",
+    iconColor: "text-violet-600",
+    title: "React Developer Certificate",
+    sub: "Issued by MBK Tech",
+    date: "Apr 20, 2024",
+  },
+  {
+    icon: Trophy,
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+    title: "Top Performer",
+    sub: "Scored highest in React Assessment",
+    date: "Mar 15, 2024",
+  },
+  {
+    icon: Star,
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-500",
+    title: "Python Programming",
+    sub: "Certificate of Completion",
+    date: "Feb 28, 2024",
+  },
+];
+
+const cardStyle = {
+  background: "#fff",
+  border: "1px solid #eef0f3",
+  borderRadius: 14,
+  padding: "20px 24px",
+  flex: 1,
+  textAlign: "left",
+};
+
+function CardHeader({ icon: Icon, title }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 12, borderBottom: "1px solid #f1f2f4" }}>
+      <Icon size={16} color="#1f2937" />
+      <span style={{ fontWeight: 700, fontSize: 14.5, color: "#1f2937" }}>{title}</span>
+    </div>
+  );
+}
+
+function HeroBanner() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: 16,
+        background: "linear-gradient(120deg,#c7d2fb 0%,#dbe3fd 45%,#e9edfd 100%)",
+        padding: "36px 40px",
+        display: "flex",
+        alignItems: "center",
+        gap: 24,
+        textAlign: "left"
+      }}
+    >
+      {/* decorative wave */}
+      <svg
+        viewBox="0 0 1000 300"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5 }}
+      >
+        <path
+          d="M0,180 C200,100 350,260 550,170 C700,105 850,220 1000,140 L1000,300 L0,300 Z"
+          fill="#ffffff"
+          opacity="0.35"
+        />
+        <path
+          d="M0,220 C220,150 380,280 600,200 C760,145 880,250 1000,190 L1000,300 L0,300 Z"
+          fill="#ffffff"
+          opacity="0.25"
+        />
+      </svg>
+
+      <div
+        style={{
+          width: 108,
+          height: 108,
+          borderRadius: "50%",
+          padding: 3,
+          background: "#fff",
+          zIndex: 1,
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "50%",
+            background: "linear-gradient(160deg,#6b7280,#9ca3af)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 34,
+            fontWeight: 700,
+          }}
+        >
+          T
+        </div>
+      </div>
+
+      <div style={{ zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: "#1e293b" }}>Tharaneesh</span>
+          <BadgeCheck size={20} color="#2563eb" fill="#2563eb" strokeWidth={1.5} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+          <span style={{ fontSize: 13.5, color: "#374151" }}>Student Member</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 10, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+            <MapPin size={14} /> IV Year CSE
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+            <Landmark size={14} /> Mahendra Institution
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
+            <Phone size={14} /> 6369067085
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 13, color: "#374151" }}>
+          <Mail size={14} /> tharaneeshkp@gmail.com
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutMeCard() {
+  return (
+    <div style={cardStyle}>
+      <CardHeader icon={User} title="About Me" />
+      <p style={{ fontSize: 13.5, color: "#4b5563", lineHeight: 1.7, marginTop: 12 }}>
+        Passionate about Full Stack Development and problem solving. Always eager to learn new
+        technologies and build impactful solutions.
+      </p>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", marginTop: 18, marginBottom: 10 }}>
+        Skills
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {skills.map((s) => (
+          <span
+            key={s}
+            style={{
+              background: "#dbeafe",
+              color: "#1d4ed8",
+              fontSize: 12.5,
+              padding: "5px 12px",
+              borderRadius: 20,
+              fontWeight: 500,
+            }}
+          >
+            {s}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AcademicDetailsCard() {
+  return (
+    <div style={cardStyle}>
+      <CardHeader icon={GraduationCap} title="Academic Details" />
+      <div style={{ marginTop: 10 }}>
+        {academicRows.map(({ icon: Icon, label, value }) => (
+          <div
+            key={label}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 0",
+              borderBottom: "1px solid #f1f2f4",
+            }}
+          >
+            <Icon size={15} color="#6b7280" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: "#6b7280", width: 130, flexShrink: 0 }}>{label}</span>
+            <span style={{ fontSize: 13.5, color: "#1f2937", fontWeight: 500 }}>{value}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0" }}>
+          <TrendingUp size={15} color="#6b7280" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: "#6b7280", width: 130, flexShrink: 0 }}>CGPA</span>
+          <span style={{ fontSize: 13.5, color: "#1f2937", fontWeight: 500 }}>8.62 / 10</span>
+          <span
+            style={{
+              marginLeft: 8,
+              background: "#d1fae5",
+              color: "#059669",
+              fontSize: 11.5,
+              fontWeight: 600,
+              padding: "3px 10px",
+              borderRadius: 20,
+            }}
+          >
+            Excellent
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileCompletionCard() {
+  const pct = 85;
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  const offset = c - (pct / 100) * c;
+
+  return (
+    <div
+      style={{
+        ...cardStyle,
+        marginTop: 24,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 20,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r={r} fill="none" stroke="#e5e7eb" strokeWidth="6" />
+          <circle
+            cx="36"
+            cy="36"
+            r={r}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            transform="rotate(-90 36 36)"
+          />
+          <text x="36" y="41" textAnchor="middle" fontSize="14" fontWeight="700" fill="#1f2937">
+            {pct}%
+          </text>
+        </svg>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#1f2937" }}>Profile Completion</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, maxWidth: 380 }}>
+            You're almost there! Complete your profile to get better recommendations and opportunities.
+          </div>
+        </div>
+      </div>
+
+      <button
+        style={{
+          background: "#0c2540",
+          color: "#fff",
+          border: "none",
+          borderRadius: 10,
+          padding: "12px 22px",
+          fontSize: 13.5,
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+        }}
+      >
+        Complete Profile <ArrowRight size={15} />
+      </button>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -432,6 +829,7 @@ export default function Dashboard() {
         return [
           { name: 'Dashboard', icon: '📊' },
           { name: 'My Courses', icon: '📚' },
+          { name: 'Live Classes', icon: '🎥' },
           { name: 'Assignments', icon: '📝' },
           { name: 'Certificates', icon: '🎓' },
           { name: 'Students Directory', icon: '👨‍🎓' },
@@ -1025,6 +1423,56 @@ export default function Dashboard() {
           </div>
         );
 
+      case 'Live Classes':
+        return (
+          <div 
+            className="border bg-white p-6 shadow-sm"
+            style={{ borderRadius: '18px', borderColor: '#E7E9F5' }}
+          >
+            <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, margin: 0, marginBottom: '20px' }}>🎥 Live Class Sessions</h3>
+            <div className="flex flex-col gap-4">
+              {[
+                { id: 1, title: 'Python Web Frameworks: Django & Flask', trainer: 'Trainer Daniel Scott', date: 'July 10, 2026', time: '11:00 AM - 12:30 PM', status: 'Scheduled' },
+                { id: 2, title: 'React State Management: Redux & Context API', trainer: 'Trainer John Doe', date: 'Today', time: '03:00 PM - 04:30 PM', status: 'Live Now' },
+                { id: 3, title: 'Advanced MongoDB Aggregate Pipelines', trainer: 'Trainer Sarah Connor', date: 'July 14, 2026', time: '02:00 PM - 03:30 PM', status: 'Scheduled' }
+              ].map(session => (
+                <div 
+                  key={session.id} 
+                  className="p-5 border border-slate-100 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#F5F6FB]" 
+                  style={{ borderColor: '#E7E9F5' }}
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h4 className="text-sm font-bold text-slate-850 m-0">{session.title}</h4>
+                      <span 
+                        className="py-0.5 px-2 rounded-full text-[9px] font-bold"
+                        style={{
+                          backgroundColor: session.status === 'Live Now' ? '#fee2e2' : '#f0fdf4',
+                          color: session.status === 'Live Now' ? '#ef4444' : '#15803d'
+                        }}
+                      >
+                        {session.status === 'Live Now' ? '🔴 Live Now' : '📅 Scheduled'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-550 m-0 mb-1">Trainer: <strong>{session.trainer}</strong></p>
+                    <span className="text-xs text-slate-450">Session Time: {session.date} • {session.time}</span>
+                  </div>
+                  <button
+                    onClick={() => showToast(session.status === 'Live Now' ? 'Joining video call...' : 'Class has not started yet.')}
+                    className="py-2 px-4 rounded-xl text-white font-bold text-xs cursor-pointer border-0 transition-colors"
+                    style={{ 
+                      backgroundColor: session.status === 'Live Now' ? '#ef4444' : '#64748B',
+                      opacity: session.status === 'Live Now' ? 1 : 0.8
+                    }}
+                  >
+                    {session.status === 'Live Now' ? 'Join Live Room' : 'Add to Calendar'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
       case 'Certificates':
         return (
           <div 
@@ -1100,39 +1548,13 @@ export default function Dashboard() {
 
       case 'Profile':
         return (
-          <div 
-            className="border bg-white p-6 shadow-sm"
-            style={{ borderRadius: '18px', borderColor: '#E7E9F5' }}
-          >
-            <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, margin: 0, marginBottom: '20px' }}>👤 Student Profile Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Full Name</label>
-                <input type="text" readOnly value={user.fullName || 'John Doe'} className="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 cursor-default outline-none" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
-                <input type="text" readOnly value={user.email || ''} className="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 cursor-default outline-none" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Phone Number</label>
-                <input type="text" readOnly value={user.phone || '6969067085'} className="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 cursor-default outline-none" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Registered College</label>
-                <input type="text" readOnly value={user.college || 'GCE Salem'} className="w-full p-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 cursor-default outline-none" />
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <HeroBanner />
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <AboutMeCard />
+              <AcademicDetailsCard />
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Skills Inventory</h4>
-              <div className="flex flex-wrap gap-2">
-                {skills.map((skill, index) => (
-                  <span key={index} className="py-1.5 px-3.5 text-white rounded-full text-xs font-bold" style={{ backgroundColor: theme.primary }}>
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <ProfileCompletionCard />
           </div>
         );
 
@@ -1720,6 +2142,3004 @@ export default function Dashboard() {
         return <div className="text-xs text-slate-400">Select sidebar option</div>;
     }
   };
+
+
+  if (user.role === 'student' && activeSidebarTab === 'Dashboard') {
+    const tokens = {
+      bg: "#f6f7fb",
+      surface: "#ffffff",
+      border: "#eaecf1",
+      ink: "#161a23",
+      inkSoft: "#6b7280",
+      inkMute: "#9aa1ac",
+      indigo: "#4f46e5",
+      indigoSoft: "#eef0ff",
+      coral: "#ff7a45",
+      coralSoft: "#fff0e8",
+      green: "#12b76a",
+      greenSoft: "#e7f9f0",
+      sky: "#0ea5e9",
+      skySoft: "#e6f7fd",
+      rose: "#f43f5e",
+      roseSoft: "#fdeaf0",
+      radiusLg: 18,
+      radiusMd: 14,
+      shadow: "0 1px 2px rgba(16,24,40,0.04), 0 4px 14px rgba(16,24,40,0.05)",
+      shadowHover: "0 6px 20px rgba(16,24,40,0.09)",
+    };
+
+    const dateStr = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const stats = [
+      { icon: BookOpen, bg: tokens.indigoSoft, fg: tokens.indigo, value: String((user.assignedCourses || []).length + 2), label: "Enrolled Courses" },
+      { icon: GraduationCap, bg: tokens.greenSoft, fg: tokens.green, value: String(studentCertificates.length + 1), label: "Certificates Earned" },
+      { icon: ClipboardList, bg: tokens.skySoft, fg: tokens.sky, value: String(studentAssignments.filter(a => a.status === 'Pending').length), label: "Assignments Due" },
+      { icon: Clock, bg: tokens.roseSoft, fg: tokens.rose, value: "32h", label: "Learning Hours" },
+    ];
+
+    const continueLearning = [
+      {
+        title: "Micro Soft Office with PowerPoint",
+        meta: "By MBK Expert · 4 lessons left",
+        progress: 75,
+        color: tokens.coral,
+        icon: "🖥️",
+      },
+      {
+        title: "Micro Soft Office with Excel",
+        meta: "By MBK Expert · 5 lessons left",
+        progress: 40,
+        color: tokens.indigo,
+        icon: "🎨",
+      },
+    ];
+
+    const upcomingAssignments = [
+      { title: "DOM Manipulation & Event Listeners", subject: "Frontend Developer (React)", due: "2", unit: "days" },
+      { title: "Database Design & SQL Joins", subject: "Python Full Stack Bootcamp", due: "5", unit: "days" },
+    ];
+
+    const ProgressRing = ({ pct, size = 56, stroke = 5, color = tokens.coral }) => {
+      const r = (size - stroke) / 2;
+      const c = 2 * Math.PI * r;
+      const offset = c - (pct / 100) * c;
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ffffff55" strokeWidth={stroke} />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+          <text x={size / 2} y={size / 2 + 4} textAnchor="middle" fontSize="12.5" fontWeight="800" fill={tokens.ink}>
+            {pct}%
+          </text>
+        </svg>
+      );
+    };
+
+    return (
+      <div
+        className="mbk-root"
+        style={{
+          display: "flex",
+          fontFamily: "'Plus Jakarta Sans','Inter','Segoe UI',sans-serif",
+          background: tokens.bg,
+          minHeight: "100vh",
+          width: '100%',
+          textAlign: 'left'
+        }}
+      >
+        <style>{`
+          .mbk-root * { box-sizing: border-box; }
+          .mbk-card { transition: box-shadow .18s ease, transform .18s ease; }
+          .mbk-card:hover { box-shadow: ${tokens.shadowHover}; transform: translateY(-2px); }
+          .mbk-nav-item { transition: background .15s ease, color .15s ease; }
+          .mbk-nav-item:hover:not(.active) { background: #f3f4f8; }
+          .mbk-btn { transition: opacity .15s ease, transform .12s ease; }
+          .mbk-btn:hover { opacity: 0.88; }
+          .mbk-btn:active { transform: scale(0.97); }
+          .mbk-tile { transition: background .15s ease, transform .15s ease; }
+          .mbk-tile:hover { background: #eef0ff; transform: translateY(-2px); }
+          .mbk-link:hover { text-decoration: underline; }
+        `}</style>
+
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 288,
+            background: tokens.surface,
+            borderRight: `1px solid ${tokens.border}`,
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "26px 24px 20px" }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                background: `linear-gradient(135deg, ${tokens.indigo}, #7c6cf2)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontWeight: 800,
+                fontSize: 16,
+                letterSpacing: -0.5,
+              }}
+            >
+              MB
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: tokens.ink, lineHeight: 1.1, letterSpacing: -0.3 }}>
+                MBK <span style={{ color: tokens.indigo }}>Carrierz</span>
+              </div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1.2, color: tokens.inkMute, fontWeight: 600, marginTop: 2 }}>
+                LEARNING PLATFORM
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "4px 22px 18px" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: tokens.inkMute, marginBottom: 10 }}>
+              MAIN MENU
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {[
+                { icon: LayoutDashboard, label: "Dashboard", active: true },
+                { icon: BookOpen, label: "My Courses" },
+                { icon: Video, label: "Live Classes" },
+                { icon: ClipboardList, label: "Assignments" },
+                { icon: GraduationCap, label: "Certificates" },
+                { icon: Users, label: "Students Directory" },
+                { icon: UserCog, label: "Trainers Directory" },
+                { icon: Building2, label: "Companies Directory" },
+                { icon: User, label: "Profile" },
+              ].map(({ icon: Icon, label, active }) => (
+                <div
+                  key={label}
+                  onClick={() => setActiveSidebarTab(label)}
+                  className={`mbk-nav-item${active ? " active" : ""}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: active ? 700 : 600,
+                    cursor: "pointer",
+                    color: active ? tokens.indigo : "#3b3f46",
+                    background: active ? tokens.indigoSoft : "transparent",
+                  }}
+                >
+                  <Icon size={17} strokeWidth={2.2} />
+                  <span>{label}</span>
+                </div>
+              ))}
+            </nav>
+          </div>
+
+          <div style={{ padding: "8px 22px 0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: tokens.inkMute, marginBottom: 10 }}>
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {[
+                { icon: Settings, label: "Settings" },
+                { icon: LogOut, label: "Logout" },
+              ].map(({ icon: Icon, label }) => (
+                <div
+                  key={label}
+                  onClick={() => {
+                    if (label === 'Logout') {
+                      handleSignOut();
+                    } else {
+                      setActiveSidebarTab(label);
+                    }
+                  }}
+                  className="mbk-nav-item"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    color: label === "Logout" ? tokens.rose : "#3b3f46",
+                  }}
+                >
+                  <Icon size={17} strokeWidth={2.2} />
+                  <span>{label}</span>
+                </div>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        {/* Right Main Content */}
+        <div style={{ flex: 1 }}>
+          {/* Top Bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "24px 40px 20px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: tokens.ink, letterSpacing: -0.4 }}>
+                Dashboard
+              </div>
+              <div style={{ fontSize: 12.5, color: tokens.inkMute, marginTop: 2 }}>
+                {dateStr}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                className="mbk-btn"
+                onClick={() => showToast('Opening search tool...')}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: tokens.skySoft,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <Search size={16} color={tokens.sky} />
+              </div>
+              <div
+                className="mbk-btn"
+                onClick={() => showToast('No new notifications.')}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: tokens.coralSoft,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <Bell size={16} color={tokens.coral} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "50%",
+                    background: `linear-gradient(135deg, ${tokens.indigo}, #7c6cf2)`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: tokens.ink }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: tokens.inkMute }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Welcome Hero */}
+          <div
+            style={{
+              margin: "0 40px 24px",
+              position: "relative",
+              overflow: "hidden",
+              background: `linear-gradient(120deg, ${tokens.indigo} 0%, #7c6cf2 55%, ${tokens.coral} 130%)`,
+              borderRadius: tokens.radiusLg,
+              padding: "30px 34px",
+            }}
+          >
+            {/* decorative blobs */}
+            <svg
+              viewBox="0 0 900 260"
+              preserveAspectRatio="none"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5 }}
+            >
+              <circle cx="780" cy="30" r="140" fill="#ffffff" opacity="0.08" />
+              <circle cx="860" cy="200" r="90" fill="#ffffff" opacity="0.08" />
+            </svg>
+
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "rgba(255,255,255,0.18)",
+                  color: "#fff",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  marginBottom: 14,
+                }}
+              >
+                <Trophy size={13} /> 50% toward this month's goal
+              </div>
+
+              <h2 style={{ fontSize: 27, fontWeight: 800, color: "#fff", margin: 0, letterSpacing: -0.5 }}>
+                Welcome back, {user.fullName || 'Tharaneesh'}
+              </h2>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.85)", marginTop: 6, marginBottom: 22 }}>
+                Pick up right where you left off.
+              </p>
+
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.14)",
+                  backdropFilter: "blur(6px)",
+                  borderRadius: 14,
+                  padding: "16px 20px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: 0.5 }}>
+                    CONTINUE COURSE
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginTop: 3 }}>
+                    Python Basics & Functions Mastery
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", marginTop: 3 }}>
+                    Created by Daniel Walter Scott
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                  <ProgressRing pct={50} color="#ffffff" />
+                  <button
+                    className="mbk-btn"
+                    onClick={() => showToast('Launching Python Basics course...')}
+                    style={{
+                      background: "#ffffff",
+                      color: tokens.indigo,
+                      border: "none",
+                      borderRadius: 22,
+                      padding: "11px 26px",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stat Cards */}
+          <div style={{ margin: "0 40px 24px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
+            {stats.map((s) => (
+              <div
+                key={s.label}
+                className="mbk-card"
+                style={{
+                  background: tokens.surface,
+                  border: `1px solid ${tokens.border}`,
+                  borderRadius: tokens.radiusMd,
+                  padding: "20px 20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  boxShadow: tokens.shadow,
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: s.bg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <s.icon size={20} color={s.fg} strokeWidth={2.2} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: tokens.ink, lineHeight: 1.1 }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: tokens.inkMute, marginTop: 3 }}>{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Continue Learning + Assignments */}
+          <div style={{ margin: "0 40px 24px", display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18 }}>
+            <div
+              className="mbk-card"
+              style={{
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: tokens.radiusLg,
+                padding: "24px 26px",
+                boxShadow: tokens.shadow,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 800, color: tokens.ink, letterSpacing: -0.2 }}>Continue Learning</div>
+                <span
+                  className="mbk-link"
+                  onClick={() => setActiveSidebarTab('My Courses')}
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: tokens.indigo,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  View all <ArrowUpRight size={13} />
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {continueLearning.map((c) => (
+                  <div key={c.title} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        background: c.color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 22,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {c.icon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, color: tokens.ink }}>{c.title}</div>
+                      <div style={{ fontSize: 12, color: tokens.inkMute, marginTop: 2, marginBottom: 9 }}>
+                        {c.meta}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ flex: 1, height: 6, borderRadius: 4, background: "#f1f2f4" }}>
+                          <div
+                            style={{
+                              width: `${c.progress}%`,
+                              height: "100%",
+                              borderRadius: 4,
+                              background: c.color,
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: tokens.inkSoft, width: 32 }}>
+                          {c.progress}%
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      className="mbk-btn"
+                      onClick={() => showToast(`Launching classroom for ${c.title}...`)}
+                      style={{
+                        background: c.color,
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 9,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="mbk-card"
+              style={{
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: tokens.radiusLg,
+                padding: "24px 26px",
+                boxShadow: tokens.shadow,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 800, color: tokens.ink, letterSpacing: -0.2 }}>Upcoming Assignments</div>
+                <span
+                  className="mbk-link"
+                  onClick={() => setActiveSidebarTab('Assignments')}
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: tokens.indigo,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  View all <ArrowUpRight size={13} />
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {upcomingAssignments.map((a) => (
+                  <div
+                    key={a.title}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "#f7f8fb",
+                      borderRadius: 12,
+                      padding: "13px 15px",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          background: tokens.indigoSoft,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FileText size={14} color={tokens.indigo} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: tokens.ink, lineHeight: 1.35 }}>
+                          {a.title}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: tokens.inkMute, marginTop: 3 }}>{a.subject}</div>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 800,
+                        color: tokens.rose,
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {a.due}
+                      <br />
+                      {a.unit.toUpperCase()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Analytics + Quick Actions */}
+          <div style={{ margin: "0 40px 24px", display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18 }}>
+            <div
+              className="mbk-card"
+              style={{
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: tokens.radiusLg,
+                padding: "24px 26px",
+                boxShadow: tokens.shadow,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 800, color: tokens.ink, letterSpacing: -0.2 }}>
+                  Learning Analytics
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: tokens.inkSoft,
+                    border: `1px solid ${tokens.border}`,
+                    borderRadius: 8,
+                    padding: "5px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  This week ▾
+                </div>
+              </div>
+              
+              {/* Analytics Chart Inline SVG */}
+              <svg viewBox="0 0 780 220" style={{ width: "100%", height: 220 }}>
+                <defs>
+                  <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={tokens.indigo} stopOpacity="0.22" />
+                    <stop offset="100%" stopColor={tokens.indigo} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {[0, 1, 2, 3, 4, 5].map((v) => {
+                  const y = 220 - 24 - (v / 5) * (220 - 24 - 10);
+                  return (
+                    <g key={v}>
+                      <line x1={30} y1={y} x2={770} y2={y} stroke="#f1f2f4" strokeWidth="1" />
+                      <text x={22} y={y + 4} textAnchor="end" fontSize="11" fill={tokens.inkMute}>
+                        {v.toFixed(1)}
+                      </text>
+                    </g>
+                  );
+                })}
+                <path d="M30,132 L155,66 L280,176 L405,52.8 L530,154 L655,8.8 L770,132 L770,196 L30,196 Z" fill="url(#areaFill)" />
+                <path d="M30,132 L155,66 L280,176 L405,52.8 L530,154 L655,8.8 L770,132" fill="none" stroke={tokens.indigo} strokeWidth="2.75" strokeLinecap="round" />
+                
+                <circle cx={30} cy={132} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={155} cy={66} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={280} cy={176} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={405} cy={52.8} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={530} cy={154} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={655} cy={8.8} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+                <circle cx={770} cy={132} r="4.5" fill="#ffffff" stroke={tokens.indigo} strokeWidth="2.75" />
+
+                <text x={30} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Mon</text>
+                <text x={155} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Tue</text>
+                <text x={280} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Wed</text>
+                <text x={405} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Thu</text>
+                <text x={530} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Fri</text>
+                <text x={655} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Sat</text>
+                <text x={770} y={216} textAnchor="middle" fontSize="11.5" fontWeight="600" fill={tokens.inkSoft}>Sun</text>
+              </svg>
+            </div>
+
+            <div
+              className="mbk-card"
+              style={{
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: tokens.radiusLg,
+                padding: "24px 26px",
+                boxShadow: tokens.shadow,
+              }}
+            >
+              <div style={{ fontSize: 16.5, fontWeight: 800, color: tokens.ink, marginBottom: 16, letterSpacing: -0.2 }}>
+                Quick Actions
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {[
+                  { icon: FileQuestion, label: "Take Quiz", action: () => showToast('Launching quiz engine...') },
+                  { icon: NotebookPen, label: "Notes", action: () => showToast('Opening notes editor...') },
+                  { icon: CalendarDays, label: "Calendar", action: () => showToast('Opening calendar...') },
+                  { icon: FileText, label: "Resume", action: () => showToast('Resume downloaded in PDF format!') },
+                ].map((q) => (
+                  <div
+                    key={q.label}
+                    onClick={q.action}
+                    className="mbk-tile"
+                    style={{
+                      background: "#f7f8fb",
+                      borderRadius: 12,
+                      padding: "20px 12px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <q.icon size={20} color={tokens.indigo} strokeWidth={2.2} style={{ marginBottom: 8 }} />
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: tokens.ink }}>{q.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Recommended Courses */}
+          <div style={{ margin: "0 40px 40px" }}>
+            <div
+              className="mbk-card"
+              style={{
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: tokens.radiusLg,
+                padding: "24px 26px",
+                boxShadow: tokens.shadow,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 800, color: tokens.ink, letterSpacing: -0.2 }}>Recommended Courses</div>
+                <span
+                  className="mbk-link"
+                  onClick={() => showToast('Redirecting to Course Shop...')}
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: tokens.indigo,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  Browse all <ArrowUpRight size={13} />
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                {[
+                  {
+                    title: "AI & Machine Learning",
+                    desc: "Master deep learning and neural networks.",
+                    icon: Bot,
+                    bg: tokens.indigoSoft,
+                    fg: tokens.indigo,
+                  },
+                  {
+                    title: "Cybersecurity Essentials",
+                    desc: "Learn network defense and cryptography.",
+                    icon: ShieldCheck,
+                    bg: tokens.coralSoft,
+                    fg: tokens.coral,
+                  },
+                ].map((r) => (
+                  <div
+                    key={r.title}
+                    onClick={() => handleBuyCourse(r.title)}
+                    className="mbk-card"
+                    style={{
+                      border: `1px solid ${tokens.border}`,
+                      borderRadius: 14,
+                      padding: "20px 20px",
+                      cursor: "pointer",
+                      display: "flex",
+                      gap: 16,
+                      alignItems: "flex-start",
+                      background: '#fff'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 12,
+                        background: r.bg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <r.icon size={21} color={r.fg} strokeWidth={2.2} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: tokens.ink }}>{r.title}</div>
+                      <div style={{ fontSize: 12.5, color: tokens.inkMute, marginTop: 5 }}>{r.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Assignments') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments", active: true },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑🎓", label: "Students Directory" },
+                { emoji: "🧑🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label, active }) => (
+                <div
+                  key={label}
+                  onClick={() => setActiveSidebarTab(label)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    color: active ? "#ffffff" : "#3b3f46",
+                    background: active ? "#6b6bf5" : "transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{emoji}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1 }}>
+          {/* Top bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Dashboard</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* My Assignments card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px 8px",
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#1f2937", marginBottom: 16 }}>
+              My Assignments
+            </div>
+
+            {[
+              {
+                title: "Python Basics & Functions",
+                subject: "Python Full Stack Bootcamp",
+                dueDate: "July 10, 2026",
+                status: "Submitted",
+                grade: "A",
+              },
+              {
+                title: "DOM Manipulation & Event Listeners",
+                subject: "Frontend Developer (React)",
+                dueDate: "July 15, 2026",
+                status: "Pending",
+              },
+              {
+                title: "Database Design & SQL Joins",
+                subject: "Python Full Stack Bootcamp",
+                dueDate: "July 20, 2026",
+                status: "Pending",
+              },
+            ].map((a, i) => (
+              <div
+                key={a.title}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  padding: "16px 0",
+                  borderTop: i === 0 ? "1px solid #eceef1" : "1px solid #f1f2f4",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 15.5, fontWeight: 800, color: "#1f2937" }}>{a.title}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                    Subject: {a.subject}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e11d48", marginTop: 4 }}>
+                    Due Date: {a.dueDate}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 20 }}>
+                  {a.status === "Submitted" ? (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>Submitted</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#3d5afe", marginTop: 2 }}>
+                        Grade: {a.grade}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#d97706" }}>Pending</span>
+                      <button
+                        onClick={() => showToast('Uploading project files...')}
+                        style={{
+                          background: "#f2a93b",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "7px 14px",
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Upload Code
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'My Courses') {
+    // Start with the user's template static active courses
+    const defaultCourses = [
+      { title: "Micro Soft Office with PowerPoint" },
+      { title: "Micro Soft Office with Excel" },
+    ];
+    // Combine with database assigned courses, ensuring no duplicates
+    const dbCourses = (user.assignedCourses || []).map(title => ({ title }));
+    const activeCourses = [...defaultCourses];
+    dbCourses.forEach(dbc => {
+      if (!activeCourses.some(ac => ac.title === dbc.title)) {
+        activeCourses.push(dbc);
+      }
+    });
+
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses", active: true },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑🎓", label: "Students Directory" },
+                { emoji: "🧑🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label, active }) => (
+                <div
+                  key={label}
+                  onClick={() => setActiveSidebarTab(label)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    color: active ? "#ffffff" : "#3b3f46",
+                    background: active ? "#6b6bf5" : "transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{emoji}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1 }}>
+          {/* Top bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Dashboard</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* My Courses card */}
+          <div style={{ margin: "0 40px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 28, borderBottom: "1px solid #eceef1" }}>
+              <div
+                onClick={() => setStudentActiveTab('My Courses')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingBottom: 12,
+                  borderBottom: studentActiveTab === 'My Courses' ? "2px solid #3d5afe" : "2px solid transparent",
+                  color: studentActiveTab === 'My Courses' ? "#3d5afe" : "#6b7280",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <BarChart3 size={16} /> Active Courses ({activeCourses.length})
+              </div>
+              <div
+                onClick={() => setStudentActiveTab('Course Shop')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingBottom: 12,
+                  borderBottom: studentActiveTab === 'Course Shop' ? "2px solid #3d5afe" : "2px solid transparent",
+                  color: studentActiveTab === 'Course Shop' ? "#3d5afe" : "#6b7280",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                <GraduationCap size={16} /> Register for Courses
+              </div>
+            </div>
+
+            {studentActiveTab === 'My Courses' ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginTop: 24 }}>
+                {activeCourses.map((c) => (
+                  <div
+                    key={c.title}
+                    style={{
+                      width: 340,
+                      background: "#ffffff",
+                      border: "1px solid #eceef1",
+                      borderRadius: 12,
+                      padding: "18px 22px 22px",
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, color: "#3d5afe" }}>
+                      ENROLLED
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#1f2937", marginTop: 6, marginBottom: 20 }}>
+                      {c.title}
+                    </div>
+                    <button
+                      onClick={() => showToast(`Launching classroom interface for ${c.title}...`)}
+                      style={{
+                        width: "100%",
+                        background: "#ffffff",
+                        color: "#3d5afe",
+                        border: "1px solid #3d5afe",
+                        borderRadius: 20,
+                        padding: "10px 0",
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Go to Classroom
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginTop: 24 }}>
+                {allCourses.filter(c => !activeCourses.some(ac => ac.title === c.title)).map((course, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      width: 340,
+                      background: "#ffffff",
+                      border: "1px solid #eceef1",
+                      borderRadius: 12,
+                      padding: "18px 22px 22px",
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, color: "#d97706" }}>
+                      AVAILABLE
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#1f2937", marginTop: 6, marginBottom: 20 }}>
+                      {course.title}
+                    </div>
+                    <button
+                      onClick={() => handleBuyCourse(course.title)}
+                      style={{
+                        width: "100%",
+                        background: "#3d5afe",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 20,
+                        padding: "10px 0",
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Register Now
+                    </button>
+                  </div>
+                ))}
+                {allCourses.filter(c => !activeCourses.some(ac => ac.title === c.title)).length === 0 && (
+                  <div style={{ width: '100%', border: "1px solid #eceef1", borderRadius: 12, padding: "20px", textAlign: "center", background: "#fff", fontSize: 13.5, color: "#6b7280" }}>
+                    No new courses available right now. You've registered in all of them!
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Live Classes') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes", active: true },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑🎓", label: "Students Directory" },
+                { emoji: "🧑🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label, active }) => (
+                <div
+                  key={label}
+                  onClick={() => setActiveSidebarTab(label)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    color: active ? "#ffffff" : "#3b3f46",
+                    background: active ? "#6b6bf5" : "transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{emoji}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1 }}>
+          {/* Top bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Dashboard</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Class Sessions card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px 8px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <Users size={20} color="#5b3fd6" />
+              <span style={{ fontSize: 19, fontWeight: 800, color: "#1f2937" }}>
+                Live Class Sessions
+              </span>
+            </div>
+
+            {[
+              {
+                title: "Python Web Frameworks: Django & Flask",
+                trainer: "Trainer Daniel Scott",
+                time: "July 10, 2026 • 11:00 AM - 12:30 PM",
+                status: "Scheduled",
+              },
+              {
+                title: "React State Management: Redux & Context API",
+                trainer: "Trainer John Doe",
+                time: "Today • 03:00 PM - 04:30 PM",
+                status: "Live Now",
+              },
+              {
+                title: "Advanced MongoDB Aggregate Pipelines",
+                trainer: "Trainer Sarah Connor",
+                time: "July 14, 2026 • 02:00 PM - 03:30 PM",
+                status: "Scheduled",
+              },
+            ].map((c, i) => (
+              <div
+                key={c.title}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  padding: "16px 0",
+                  borderTop: i === 0 ? "1px solid #eceef1" : "1px solid #f1f2f4",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 15.5, fontWeight: 800, color: "#1f2937" }}>
+                      {c.title}
+                    </span>
+                    {c.status === "Live Now" ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          color: "#e11d48",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: "#e11d48",
+                            display: "inline-block",
+                          }}
+                        />
+                        Live Now
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: "#3d5afe" }}>
+                        ⏱ Scheduled
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>
+                    Trainer: <strong>{c.trainer}</strong>
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                    Session Time: {c.time}
+                  </div>
+                </div>
+
+                <div style={{ flexShrink: 0, marginLeft: 20 }}>
+                  {c.status === "Live Now" ? (
+                    <button
+                      onClick={() => showToast('Joining video call...')}
+                      style={{
+                        background: "#e11d48",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Join Live Room
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => showToast('Class has not started yet.')}
+                      style={{
+                        background: "#ffffff",
+                        color: "#374151",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 6,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Add to Calendar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Certificates') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+            textAlign: 'left'
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑‍🎓", label: "Students Directory" },
+                { emoji: "🧑‍🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label }) => {
+                const active = activeSidebarTab === label;
+                return (
+                  <div
+                    key={label}
+                    onClick={() => setActiveSidebarTab(label)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: active ? "#ffffff" : "#3b3f46",
+                      background: active ? "#6b6bf5" : "transparent",
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{emoji}</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: activeSidebarTab === 'Settings' ? '#6b6bf5' : '#3b3f46',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: 'left' }}>
+          {/* TopBar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Certificates</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px 28px",
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#1f2937", marginBottom: 20 }}>
+              My Certificates
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+              {[
+                { title: "Responsive Web Design Mastery", issueDate: "May 14, 2026", id: "MBK-CS-89210" }
+              ].map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    width: 280,
+                    background: "#f7f8fa",
+                    border: "1px solid #eceef1",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ padding: "20px 20px 16px" }}>
+                    <div style={{ fontSize: 26, marginBottom: 12 }}>🎓</div>
+                    <div style={{ fontSize: 15.5, fontWeight: 800, color: "#1f2937", marginBottom: 6 }}>
+                      {c.title}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#8a909a", marginBottom: 4 }}>
+                      Issue Date: {c.issueDate}
+                    </div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#3d5afe" }}>
+                      ID: {c.id}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => showToast('Downloading certificate pdf...')}
+                    style={{
+                      width: "100%",
+                      background: "#f2a93b",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "12px 0",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Download Certificate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Students Directory') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+            textAlign: 'left'
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑‍🎓", label: "Students Directory" },
+                { emoji: "🧑‍🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label }) => {
+                const active = activeSidebarTab === label;
+                return (
+                  <div
+                    key={label}
+                    onClick={() => setActiveSidebarTab(label)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: active ? "#ffffff" : "#3b3f46",
+                      background: active ? "#6b6bf5" : "transparent",
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{emoji}</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: activeSidebarTab === 'Settings' ? '#6b6bf5' : '#3b3f46',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: 'left' }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Students Directory</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Users size={20} color="#5b3fd6" />
+                  <span style={{ fontSize: 19, fontWeight: 800, color: "#1f2937" }}>
+                    Students Directory
+                  </span>
+                </div>
+                <p style={{ fontSize: 13.5, color: "#8a909a", marginTop: 8, marginLeft: 30 }}>
+                  Browse through registered students, view their skills, specs, and resumes.
+                </p>
+              </div>
+
+              <button
+                onClick={() => fetchDirectoryUsers()}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#eef1ff",
+                  color: "#3d5afe",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "7px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <RefreshCw size={13} /> Refresh
+              </button>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 20 }}>
+              <thead>
+                <tr>
+                  {["Name / Profile", "College & Dept", "Skills & Specifications", "Action"].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: "left",
+                        fontSize: 14.5,
+                        fontWeight: 800,
+                        color: "#1f2937",
+                        padding: "10px 0",
+                        borderBottom: "1px solid #eceef1",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { name: "mrs.Tharaneesh", college: "Government College of Engineering", dept: "Computer Science", skills: ["Python", "Java", "React"] },
+                ].map((s) => (
+                  <tr key={s.name} style={{ borderBottom: "1px solid #f1f2f4" }}>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1f2937" }}>{s.name}</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, color: "#a5abb5" }}>
+                        STUDENT
+                      </div>
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: "#374151" }}>{s.college}</div>
+                      <div style={{ fontSize: 13, color: "#8a909a", marginTop: 2 }}>{s.dept}</div>
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      {s.skills.map((sk) => (
+                        <span
+                          key={sk}
+                          style={{ fontSize: 13.5, fontWeight: 700, color: "#374151", marginRight: 16 }}
+                        >
+                          {sk}
+                        </span>
+                      ))}
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <button
+                        onClick={() => handleViewProfile({ email: 'tharaneeshkp@gmail.com', fullName: s.name, role: 'student' })}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#f2a93b",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "7px 14px",
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Search size={13} /> View Profile
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Trainers Directory') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+            textAlign: 'left'
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑‍🎓", label: "Students Directory" },
+                { emoji: "🧑‍🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label }) => {
+                const active = activeSidebarTab === label;
+                return (
+                  <div
+                    key={label}
+                    onClick={() => setActiveSidebarTab(label)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: active ? "#ffffff" : "#3b3f46",
+                      background: active ? "#6b6bf5" : "transparent",
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{emoji}</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: activeSidebarTab === 'Settings' ? '#6b6bf5' : '#3b3f46',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: 'left' }}>
+          {/* TopBar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Trainers Directory</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Users size={20} color="#5b3fd6" />
+                  <span style={{ fontSize: 19, fontWeight: 800, color: "#1f2937" }}>
+                    Trainers Directory
+                  </span>
+                </div>
+                <p style={{ fontSize: 13.5, color: "#8a909a", marginTop: 8, marginLeft: 30 }}>
+                  Browse through registered trainers, view their skills, specs, and resumes.
+                </p>
+              </div>
+
+              <button
+                onClick={() => fetchDirectoryUsers()}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#eef1ff",
+                  color: "#3d5afe",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "7px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <RefreshCw size={13} /> Refresh
+              </button>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 20 }}>
+              <thead>
+                <tr>
+                  {["Name / Profile", "Expertise", "Skills & Specifications", "Action"].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: "left",
+                        fontSize: 14.5,
+                        fontWeight: 800,
+                        color: "#1f2937",
+                        padding: "10px 0",
+                        borderBottom: "1px solid #eceef1",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { name: "Dhoni", expertise: "Software Dev", course: "Web Development BootCamp", mode: "Online" },
+                  { name: "nithya", expertise: "python development", course: "fsghtyng", mode: "Online" },
+                  { name: "Praveen Kumar", expertise: "python developer", course: "python", mode: "Online" },
+                ].map((t) => (
+                  <tr key={t.name} style={{ borderBottom: "1px solid #f1f2f4" }}>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1f2937" }}>{t.name}</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, color: "#a5abb5" }}>
+                        TRAINER
+                      </div>
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 700, color: "#374151" }}>
+                        {t.expertise}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <span style={{ fontSize: 13.5, color: "#4b5563" }}>
+                        Proposed Course: <strong style={{ color: "#1f2937" }}>{t.course}</strong>{" "}
+                        ({t.mode})
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 0", verticalAlign: "top" }}>
+                      <button
+                        onClick={() => handleViewProfile({ email: t.name + '@gmail.com', fullName: t.name, role: 'trainer' })}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#f2a93b",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "7px 14px",
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Search size={13} /> View Profile
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === 'student' && activeSidebarTab === 'Companies Directory') {
+    return (
+      <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: 300,
+            background: "#ffffff",
+            borderRight: "1px solid #eceef1",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+            textAlign: 'left'
+          }}
+        >
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 26px" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "#fdeaea",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+              }}
+            >
+              🦁
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 20, color: "#3d5afe", lineHeight: 1.1 }}>MBK</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, color: "#9aa1ac", fontWeight: 600 }}>
+                CARRIERZ
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #eceef1", margin: "0 0 18px" }} />
+
+          {/* Main menu */}
+          <div style={{ padding: "0 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              MAIN MENU
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[
+                { emoji: "📊", label: "Dashboard" },
+                { emoji: "🎓", label: "My Courses" },
+                { emoji: "🎥", label: "Live Classes" },
+                { emoji: "📝", label: "Assignments" },
+                { emoji: "🎓", label: "Certificates" },
+                { emoji: "🧑‍🎓", label: "Students Directory" },
+                { emoji: "🧑‍🏫", label: "Trainers Directory" },
+                { emoji: "🏢", label: "Companies Directory" },
+                { emoji: "👤", label: "Profile" },
+              ].map(({ emoji, label }) => {
+                const active = activeSidebarTab === label;
+                return (
+                  <div
+                    key={label}
+                    onClick={() => setActiveSidebarTab(label)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: active ? "#ffffff" : "#3b3f46",
+                      background: active ? "#6b6bf5" : "transparent",
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{emoji}</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div style={{ padding: "26px 22px 0" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: "#9aa1ac",
+                marginBottom: 10,
+              }}
+            >
+              SETTINGS
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div
+                onClick={() => setActiveSidebarTab('Settings')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: activeSidebarTab === 'Settings' ? '#6b6bf5' : '#3b3f46',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⚙️</span>
+                <span>Settings</span>
+              </div>
+              <div
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3b3f46",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🔋</span>
+                <span>Logout</span>
+              </div>
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Panel */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: 'left' }}>
+          {/* TopBar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "22px 40px 18px",
+            }}
+          >
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#5b3fd6", margin: 0 }}>Companies Directory</h1>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#e6f4fb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Search size={16} color="#2fa9d8" />
+              </div>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff4e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bell size={16} color="#f2a93b" fill="#f2a93b" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={handleSignOut}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "#3d5afe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {user.fullName ? user.fullName[0] : 'T'}
+                </div>
+                <div style={{ lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f2937" }}>{user.fullName || 'Tharaneesh'}</div>
+                  <div style={{ fontSize: 12, color: "#9aa1ac" }}>Logout</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Card */}
+          <div
+            style={{
+              margin: "0 40px",
+              background: "#ffffff",
+              border: "1px solid #eceef1",
+              borderRadius: 14,
+              padding: "22px 28px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Users size={20} color="#5b3fd6" />
+                  <span style={{ fontSize: 19, fontWeight: 800, color: "#1f2937" }}>
+                    Companys Directory
+                  </span>
+                </div>
+                <p style={{ fontSize: 13.5, color: "#8a909a", marginTop: 8, marginLeft: 30 }}>
+                  Browse through registered companys, view their skills, specs, and resumes.
+                </p>
+              </div>
+
+              <button
+                onClick={() => fetchDirectoryUsers()}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#eef1ff",
+                  color: "#3d5afe",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "7px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <RefreshCw size={13} /> Refresh
+              </button>
+            </div>
+
+            <div style={{ padding: "60px 0", textAlign: "center" }}>
+              <span style={{ fontSize: 14, color: "#9aa1ac", fontWeight: 500 }}>
+                No companys registered yet.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
