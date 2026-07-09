@@ -749,11 +749,25 @@ app.get('/api/users/:email', async (req, res) => {
 app.put('/api/users/:email/profile', async (req, res) => {
   try {
     const { email } = req.params;
-    const { fullName, phone, gender, year, district, college, department } = req.body;
+    const { fullName, phone, gender, year, district, college, department, profilePhoto, profilePhotoFile } = req.body;
     
     const updateData = { fullName, phone, gender, year, district, college, department };
 
+    // Handle profile photo upload
+    if (profilePhoto && profilePhotoFile) {
+      if (profilePhoto.startsWith('/uploads/')) {
+        updateData.profilePhoto = profilePhoto;
+      } else {
+        updateData.profilePhoto = saveUploadedFile(profilePhoto, profilePhotoFile);
+      }
+    }
+
     if (isMongoConnected) {
+      // Delete old photo if being replaced
+      if (updateData.profilePhoto) {
+        const existing = await User.findOne({ email });
+        if (existing && existing.profilePhoto) deleteUploadedFile(existing.profilePhoto);
+      }
       const updated = await User.findOneAndUpdate(
         { email },
         updateData,
@@ -766,6 +780,11 @@ app.put('/api/users/:email/profile', async (req, res) => {
       const index = localUsers.findIndex(u => u.email === email);
       if (index === -1) return res.status(404).json({ success: false, message: 'User not found.' });
       
+      // Delete old photo if replacing
+      if (updateData.profilePhoto && localUsers[index].profilePhoto) {
+        deleteUploadedFile(localUsers[index].profilePhoto);
+      }
+
       localUsers[index] = {
         ...localUsers[index],
         ...updateData

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -57,6 +57,14 @@ import {
   Bot,
   ShieldCheck,
   LayoutDashboard,
+  Camera,
+  X,
+  Check,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Save,
+  Edit3,
 } from "lucide-react";
 import '../styles/Dashboard.css';
 
@@ -216,147 +224,477 @@ function CardHeader({ icon: Icon, title }) {
   );
 }
 
-function HeroBanner() {
+/* ===== EDIT PROFILE MODAL ===== */
+function EditProfileModal({ user, onClose, onSave }) {
+  const [form, setForm] = useState({
+    fullName: user.fullName || '',
+    phone: user.phone || '',
+    gender: user.gender || '',
+    year: user.year || '',
+    district: user.district || '',
+    college: user.college || '',
+    department: user.department || '',
+    bio: user.bio || '',
+  });
+
+  // Photo states
+  const [photoSrc, setPhotoSrc] = useState(null); // raw uploaded image dataURL
+  const [croppedPhoto, setCroppedPhoto] = useState(user.profilePhoto || null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [rotate, setRotate] = useState(0);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [saving, setSaving] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imgRef = useRef(null);
+  const cropSize = 240;
+
+  const drawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = cropSize;
+    canvas.height = cropSize;
+    ctx.clearRect(0, 0, cropSize, cropSize);
+
+    // Clip to circle
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.translate(cropSize / 2 + offset.x, cropSize / 2 + offset.y);
+    ctx.rotate((rotate * Math.PI) / 180);
+    ctx.scale(zoom, zoom);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2, img.naturalWidth, img.naturalHeight);
+    ctx.restore();
+
+    // Overlay ring
+    ctx.beginPath();
+    ctx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#4f46e5';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }, [zoom, rotate, offset]);
+
+  useEffect(() => {
+    if (showCropper && photoSrc) {
+      const img = new Image();
+      img.onload = () => {
+        imgRef.current = img;
+        drawCanvas();
+      };
+      img.src = photoSrc;
+    }
+  }, [showCropper, photoSrc]);
+
+  useEffect(() => {
+    if (showCropper && imgRef.current) drawCanvas();
+  }, [zoom, rotate, offset, drawCanvas, showCropper]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPhotoSrc(ev.target.result);
+      setZoom(1);
+      setRotate(0);
+      setOffset({ x: 0, y: 0 });
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleMouseDown = (e) => {
+    setDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+  };
+  const handleMouseMove = (e) => {
+    if (!dragging) return;
+    setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+  const handleMouseUp = () => setDragging(false);
+
+  const handleTouchStart = (e) => {
+    const t = e.touches[0];
+    setDragging(true);
+    setDragStart({ x: t.clientX - offset.x, y: t.clientY - offset.y });
+  };
+  const handleTouchMove = (e) => {
+    if (!dragging) return;
+    const t = e.touches[0];
+    setOffset({ x: t.clientX - dragStart.x, y: t.clientY - dragStart.y });
+  };
+
+  const applyCrop = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    setCroppedPhoto(dataUrl);
+    setShowCropper(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const body = { ...form };
+      if (croppedPhoto && croppedPhoto.startsWith('data:')) {
+        body.profilePhoto = croppedPhoto;
+        body.profilePhotoFile = `profile_${Date.now()}.jpg`;
+      } else if (croppedPhoto && croppedPhoto.startsWith('/uploads/')) {
+        body.profilePhoto = croppedPhoto;
+        body.profilePhotoFile = croppedPhoto;
+      }
+      const res = await fetch(`/api/users/${encodeURIComponent(user.email)}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onSave(data.user);
+        onClose();
+      } else {
+        alert(data.message || 'Failed to save profile.');
+      }
+    } catch (err) {
+      alert('Network error. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 14px',
+    border: '1.5px solid #e2e8f0',
+    borderRadius: 10,
+    fontSize: 13.5,
+    color: '#1e293b',
+    outline: 'none',
+    background: '#f8fafc',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.2s',
+  };
+  const labelStyle = {
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 5,
+    display: 'block',
+  };
+
   return (
-    <div
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: 16,
-        background: "linear-gradient(120deg,#c7d2fb 0%,#dbe3fd 45%,#e9edfd 100%)",
-        padding: "36px 40px",
-        display: "flex",
-        alignItems: "center",
-        gap: 24,
-        textAlign: "left"
-      }}
-    >
-      {/* decorative wave */}
-      <svg
-        viewBox="0 0 1000 300"
-        preserveAspectRatio="none"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5 }}
-      >
-        <path
-          d="M0,180 C200,100 350,260 550,170 C700,105 850,220 1000,140 L1000,300 L0,300 Z"
-          fill="#ffffff"
-          opacity="0.35"
-        />
-        <path
-          d="M0,220 C220,150 380,280 600,200 C760,145 880,250 1000,190 L1000,300 L0,300 Z"
-          fill="#ffffff"
-          opacity="0.25"
-        />
-      </svg>
-
-      <div
-        style={{
-          width: 108,
-          height: 108,
-          borderRadius: "50%",
-          padding: 3,
-          background: "#fff",
-          zIndex: 1,
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            borderRadius: "50%",
-            background: "linear-gradient(160deg,#6b7280,#9ca3af)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontSize: 34,
-            fontWeight: 700,
-          }}
-        >
-          T
-        </div>
-      </div>
-
-      <div style={{ zIndex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 28, fontWeight: 700, color: "#1e293b" }}>Tharaneesh</span>
-          <BadgeCheck size={20} color="#2563eb" fill="#2563eb" strokeWidth={1.5} />
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(15,23,42,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '20px',
+      overflowY: 'auto',
+    }}>
+      <div style={{
+        background: '#fff',
+        borderRadius: 20,
+        width: '100%',
+        maxWidth: 620,
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.18)',
+        position: 'relative',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '22px 28px 18px',
+          borderBottom: '1px solid #f1f5f9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, background: '#fff', zIndex: 1, borderRadius: '20px 20px 0 0',
+        }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Edit Profile</div>
+            <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 2 }}>Update your personal information and photo</div>
+          </div>
+          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <X size={18} color="#64748b" />
+          </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-          <span style={{ fontSize: 13.5, color: "#374151" }}>Student Member</span>
+        <div style={{ padding: '24px 28px' }}>
+          {/* Photo Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+            <div style={{ position: 'relative', width: 110, height: 110 }}>
+              {croppedPhoto ? (
+                <img src={croppedPhoto} alt="Profile" style={{ width: 110, height: 110, borderRadius: '50%', objectFit: 'cover', border: '4px solid #eef0ff', boxShadow: '0 4px 14px rgba(79,70,229,0.18)' }} />
+              ) : (
+                <div style={{
+                  width: 110, height: 110, borderRadius: '50%',
+                  background: 'linear-gradient(135deg,#4f46e5,#7c6cf2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 38, fontWeight: 800,
+                  border: '4px solid #eef0ff',
+                }}>
+                  {(form.fullName || user.fullName || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  position: 'absolute', bottom: 2, right: 2,
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: '#4f46e5', border: '2.5px solid #fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', boxShadow: '0 2px 8px rgba(79,70,229,0.4)',
+                  transition: 'transform 0.15s',
+                }}
+                title="Upload photo"
+              >
+                <Camera size={15} color="#fff" />
+              </button>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+            <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>Click the camera icon to upload a photo</div>
+          </div>
+
+          {/* Photo Cropper */}
+          {showCropper && (
+            <div style={{
+              background: '#0f172a',
+              borderRadius: 16,
+              padding: '20px',
+              marginBottom: 24,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            }}>
+              <div style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Adjust your photo</div>
+              <canvas
+                ref={canvasRef}
+                width={cropSize}
+                height={cropSize}
+                style={{ borderRadius: '50%', cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none', maxWidth: '100%' }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleMouseUp}
+              />
+              <div style={{ color: '#94a3b8', fontSize: 11.5, textAlign: 'center' }}>Drag to reposition • Use controls below</div>
+
+              {/* Controls */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: '8px 14px' }}>
+                  <ZoomOut size={14} color="#94a3b8" />
+                  <input type="range" min="0.5" max="3" step="0.05" value={zoom}
+                    onChange={e => setZoom(parseFloat(e.target.value))}
+                    style={{ width: 100, accentColor: '#4f46e5' }}
+                  />
+                  <ZoomIn size={14} color="#94a3b8" />
+                  <span style={{ color: '#e2e8f0', fontSize: 11, minWidth: 32 }}>{(zoom * 100).toFixed(0)}%</span>
+                </div>
+                <button
+                  onClick={() => setRotate(r => (r + 90) % 360)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10, padding: '8px 14px', color: '#e2e8f0', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}
+                >
+                  <RotateCw size={14} /> Rotate
+                </button>
+                <button
+                  onClick={applyCrop}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4f46e5', border: 'none', borderRadius: 10, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 12.5, fontWeight: 700 }}
+                >
+                  <Check size={14} /> Apply
+                </button>
+                <button
+                  onClick={() => setShowCropper(false)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10, padding: '8px 14px', color: '#94a3b8', cursor: 'pointer', fontSize: 12.5 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
+            {[
+              { key: 'fullName', label: 'Full Name', placeholder: 'Your full name' },
+              { key: 'phone', label: 'Phone Number', placeholder: '+91 XXXXX XXXXX' },
+              { key: 'college', label: 'College / Institution', placeholder: 'College name' },
+              { key: 'department', label: 'Department', placeholder: 'e.g. Computer Science' },
+              { key: 'year', label: 'Academic Year', placeholder: 'e.g. IV Year' },
+              { key: 'district', label: 'District / City', placeholder: 'e.g. Salem' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label style={labelStyle}>{label}</label>
+                <input
+                  type="text"
+                  value={form[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+            <div>
+              <label style={labelStyle}>Gender</label>
+              <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <label style={labelStyle}>About Me / Bio</label>
+            <textarea
+              value={form.bio}
+              onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+              placeholder="Write a short bio about yourself..."
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
+            />
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 10, flexWrap: "wrap" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
-            <MapPin size={14} /> IV Year CSE
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
-            <Landmark size={14} /> Mahendra Institution
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}>
-            <Phone size={14} /> 6369067085
-          </span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 13, color: "#374151" }}>
-          <Mail size={14} /> tharaneeshkp@gmail.com
+        {/* Footer */}
+        <div style={{
+          padding: '16px 28px 22px',
+          borderTop: '1px solid #f1f5f9',
+          display: 'flex', justifyContent: 'flex-end', gap: 12,
+          position: 'sticky', bottom: 0, background: '#fff', borderRadius: '0 0 20px 20px',
+        }}>
+          <button onClick={onClose} style={{ padding: '10px 22px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontSize: 13.5, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{
+              padding: '10px 26px', background: saving ? '#a5b4fc' : '#4f46e5', border: 'none',
+              borderRadius: 10, fontSize: 13.5, fontWeight: 700, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.2s',
+            }}
+          >
+            <Save size={15} />{saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function AboutMeCard() {
+/* ===== HERO BANNER (dynamic) ===== */
+function HeroBanner({ user, onEditClick }) {
+  const initials = (user.fullName || user.email || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden", borderRadius: 16,
+      background: "linear-gradient(120deg,#c7d2fb 0%,#dbe3fd 45%,#e9edfd 100%)",
+      padding: "36px 40px", display: "flex", alignItems: "center", gap: 24, textAlign: "left",
+    }}>
+      <svg viewBox="0 0 1000 300" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.5 }}>
+        <path d="M0,180 C200,100 350,260 550,170 C700,105 850,220 1000,140 L1000,300 L0,300 Z" fill="#ffffff" opacity="0.35" />
+        <path d="M0,220 C220,150 380,280 600,200 C760,145 880,250 1000,190 L1000,300 L0,300 Z" fill="#ffffff" opacity="0.25" />
+      </svg>
+
+      {/* Avatar */}
+      <div style={{ width: 108, height: 108, borderRadius: "50%", padding: 3, background: "#fff", zIndex: 1, flexShrink: 0, position: 'relative' }}>
+        {user.profilePhoto ? (
+          <img src={user.profilePhoto} alt="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c6cf2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 34, fontWeight: 700 }}>
+            {initials}
+          </div>
+        )}
+      </div>
+
+      <div style={{ zIndex: 1, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: "#1e293b" }}>{user.fullName || 'Student'}</span>
+          <BadgeCheck size={20} color="#2563eb" fill="#2563eb" strokeWidth={1.5} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+          <span style={{ fontSize: 13.5, color: "#374151" }}>{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student'} Member</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 10, flexWrap: "wrap" }}>
+          {user.year && <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}><MapPin size={14} /> {user.year} {user.department}</span>}
+          {user.college && <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}><Landmark size={14} /> {user.college}</span>}
+          {user.phone && <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151" }}><Phone size={14} /> {user.phone}</span>}
+        </div>
+        {user.email && <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 13, color: "#374151" }}><Mail size={14} /> {user.email}</div>}
+      </div>
+
+      {/* Edit Profile Button */}
+      <button
+        onClick={onEditClick}
+        style={{
+          zIndex: 1, flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#fff',
+          color: '#4f46e5',
+          border: '1.5px solid #c7d2fb',
+          borderRadius: 12,
+          padding: '10px 20px',
+          fontSize: 13.5, fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(79,70,229,0.12)',
+          transition: 'all 0.2s',
+          alignSelf: 'flex-start',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#4f46e5'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#4f46e5'; }}
+      >
+        <Edit3 size={15} /> Edit Profile
+      </button>
+    </div>
+  );
+}
+
+function AboutMeCard({ user }) {
+  const skillList = Array.isArray(user?.skills) ? user.skills : ['React', 'Python', 'JavaScript', 'Node.js', 'MongoDB', 'HTML', 'CSS', 'Git'];
   return (
     <div style={cardStyle}>
       <CardHeader icon={User} title="About Me" />
       <p style={{ fontSize: 13.5, color: "#4b5563", lineHeight: 1.7, marginTop: 12 }}>
-        Passionate about Full Stack Development and problem solving. Always eager to learn new
-        technologies and build impactful solutions.
+        {user?.bio || 'Passionate about Full Stack Development and problem solving. Always eager to learn new technologies and build impactful solutions.'}
       </p>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", marginTop: 18, marginBottom: 10 }}>
-        Skills
-      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", marginTop: 18, marginBottom: 10 }}>Skills</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {skills.map((s) => (
-          <span
-            key={s}
-            style={{
-              background: "#dbeafe",
-              color: "#1d4ed8",
-              fontSize: 12.5,
-              padding: "5px 12px",
-              borderRadius: 20,
-              fontWeight: 500,
-            }}
-          >
-            {s}
-          </span>
+        {skillList.map((s) => (
+          <span key={s} style={{ background: "#dbeafe", color: "#1d4ed8", fontSize: 12.5, padding: "5px 12px", borderRadius: 20, fontWeight: 500 }}>{s}</span>
         ))}
       </div>
     </div>
   );
 }
 
-function AcademicDetailsCard() {
+function AcademicDetailsCard({ user }) {
+  const rows = [
+    { icon: Building2, label: 'College', value: user?.college || 'Mahendra Institution' },
+    { icon: Code2, label: 'Department', value: user?.department || 'Computer Science Engineering' },
+    { icon: Calendar, label: 'Academic Year', value: user?.year || 'IV Year' },
+    { icon: Hash, label: 'Register No.', value: user?.registerNumber || 'MIU20CS123' },
+  ];
   return (
     <div style={cardStyle}>
       <CardHeader icon={GraduationCap} title="Academic Details" />
       <div style={{ marginTop: 10 }}>
-        {academicRows.map(({ icon: Icon, label, value }) => (
-          <div
-            key={label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 0",
-              borderBottom: "1px solid #f1f2f4",
-            }}
-          >
+        {rows.map(({ icon: Icon, label, value }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f1f2f4" }}>
             <Icon size={15} color="#6b7280" style={{ flexShrink: 0 }} />
             <span style={{ fontSize: 13, color: "#6b7280", width: 130, flexShrink: 0 }}>{label}</span>
             <span style={{ fontSize: 13.5, color: "#1f2937", fontWeight: 500 }}>{value}</span>
@@ -366,86 +704,36 @@ function AcademicDetailsCard() {
           <TrendingUp size={15} color="#6b7280" style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 13, color: "#6b7280", width: 130, flexShrink: 0 }}>CGPA</span>
           <span style={{ fontSize: 13.5, color: "#1f2937", fontWeight: 500 }}>8.62 / 10</span>
-          <span
-            style={{
-              marginLeft: 8,
-              background: "#d1fae5",
-              color: "#059669",
-              fontSize: 11.5,
-              fontWeight: 600,
-              padding: "3px 10px",
-              borderRadius: 20,
-            }}
-          >
-            Excellent
-          </span>
+          <span style={{ marginLeft: 8, background: "#d1fae5", color: "#059669", fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 20 }}>Excellent</span>
         </div>
       </div>
     </div>
   );
 }
 
-function ProfileCompletionCard() {
+function ProfileCompletionCard({ onEditClick }) {
   const pct = 85;
   const r = 30;
   const c = 2 * Math.PI * r;
   const offset = c - (pct / 100) * c;
-
   return (
-    <div
-      style={{
-        ...cardStyle,
-        marginTop: 24,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 20,
-        flexWrap: "wrap",
-      }}
-    >
+    <div style={{ ...cardStyle, marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <svg width="72" height="72" viewBox="0 0 72 72">
           <circle cx="36" cy="36" r={r} fill="none" stroke="#e5e7eb" strokeWidth="6" />
-          <circle
-            cx="36"
-            cy="36"
-            r={r}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth="6"
-            strokeLinecap="round"
-            strokeDasharray={c}
-            strokeDashoffset={offset}
-            transform="rotate(-90 36 36)"
-          />
-          <text x="36" y="41" textAnchor="middle" fontSize="14" fontWeight="700" fill="#1f2937">
-            {pct}%
-          </text>
+          <circle cx="36" cy="36" r={r} fill="none" stroke="#4f46e5" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} transform="rotate(-90 36 36)" />
+          <text x="36" y="41" textAnchor="middle" fontSize="14" fontWeight="700" fill="#1f2937">{pct}%</text>
         </svg>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: "#1f2937" }}>Profile Completion</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, maxWidth: 380 }}>
-            You're almost there! Complete your profile to get better recommendations and opportunities.
-          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, maxWidth: 380 }}>You're almost there! Complete your profile to get better recommendations and opportunities.</div>
         </div>
       </div>
-
       <button
-        style={{
-          background: "#0c2540",
-          color: "#fff",
-          border: "none",
-          borderRadius: 10,
-          padding: "12px 22px",
-          fontSize: 13.5,
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          cursor: "pointer",
-        }}
+        onClick={onEditClick}
+        style={{ background: "#4f46e5", color: "#fff", border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 13.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
       >
-        Complete Profile <ArrowRight size={15} />
+        <Edit3 size={15} /> Edit Profile <ArrowRight size={15} />
       </button>
     </div>
   );
@@ -532,6 +820,8 @@ export default function Dashboard() {
   const [directoryUsers, setDirectoryUsers] = useState([]);
   const [viewingProfile, setViewingProfile] = useState(null);
   const [loadingDirectory, setLoadingDirectory] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+
 
   const fetchDirectoryUsers = async () => {
     setLoadingDirectory(true);
@@ -1549,14 +1839,26 @@ export default function Dashboard() {
       case 'Profile':
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <HeroBanner />
+            {showEditProfile && (
+              <EditProfileModal
+                user={user}
+                onClose={() => setShowEditProfile(false)}
+                onSave={(updatedUser) => {
+                  setUser(prev => ({ ...prev, ...updatedUser }));
+                  localStorage.setItem('user', JSON.stringify({ ...user, ...updatedUser }));
+                  showToast('Profile updated successfully! ✅');
+                }}
+              />
+            )}
+            <HeroBanner user={user} onEditClick={() => setShowEditProfile(true)} />
             <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <AboutMeCard />
-              <AcademicDetailsCard />
+              <AboutMeCard user={user} />
+              <AcademicDetailsCard user={user} />
             </div>
-            <ProfileCompletionCard />
+            <ProfileCompletionCard onEditClick={() => setShowEditProfile(true)} />
           </div>
         );
+
 
       case 'Settings':
         return renderSettingsView();
