@@ -107,7 +107,12 @@ export default function About() {
 
               <div className="about-hero-ctas">
                 <Link to="/courses" className="cta-button-orange glow-btn ripple" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Explore Courses</Link>
-                <button className="cta-button-secondary ripple">Our Services</button>
+                <button 
+                  className="cta-button-secondary ripple"
+                  onClick={() => document.getElementById('our-services')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  Our Services
+                </button>
               </div>
             </div>
 
@@ -238,7 +243,7 @@ export default function About() {
 
 
         {/* ==================== OUR SERVICES ==================== */}
-        <section className="about-features-section">
+        <section className="about-features-section" id="our-services">
           <div className="landing-container">
             <h2 className="section-title-center">Our Services</h2>
             <div className="services-list-grid">

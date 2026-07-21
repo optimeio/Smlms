@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../state/useAuth';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import TrainerCarousel from '../components/TrainerCarousel';
@@ -9,8 +10,9 @@ import '../styles/Courses.css';
 const coursesData = [
   {
     id: "python",
-    title: "Python Course - Master Programming & Build Real-World Projects",
-    desc: "Unlock your future in tech with an industry-focused Python course designed for beginners, students, and professionals who want to master programming and build practical software projects.",
+    title: "Python",
+    desc: "Versatile programming with Python for web, data, and scripting.",
+    image: "/python-course.jpg",
     emoji: "🐍",
     gradient: "linear-gradient(135deg, #FF6B00, #FF9F43)",
     duration: "6 Weeks",
@@ -170,6 +172,7 @@ const gradientsList = [
 
 export default function Courses() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [coursesList, setCoursesList] = useState([]);
@@ -210,17 +213,19 @@ export default function Courses() {
         const res = await fetch('/api/courses');
         const data = await res.json();
         if (data.success && data.courses && data.courses.length > 0) {
-          const mapped = data.courses.map((c, idx) => ({
+          const mappedDb = data.courses.map((c, idx) => ({
             id: c._id || c.id,
             title: c.title,
             desc: c.description || c.content || 'No description available',
             image: c.image || null,
+            originalPrice: c.originalPrice,
+            price: c.price,
             emoji: getCourseEmoji(c.title),
             gradient: gradientsList[idx % gradientsList.length],
             duration: c.duration || '8 Weeks',
             syllabus: c.content ? c.content.split('\n').filter(Boolean) : ['Syllabus details pending']
           }));
-          setCoursesList(mapped);
+          setCoursesList(mappedDb);
         } else {
           setCoursesList(coursesData);
         }
@@ -316,17 +321,31 @@ export default function Courses() {
                   whileHover={{ y: -8 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
-                  <div className="course-card-banner" style={{ background: course.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                  <div className="course-card-banner" style={{ background: course.image ? '#ffffff' : course.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                     {course.image ? (
-                      <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: '48px', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))' }}>{course.emoji}</span>
-                    )}
+                      <img 
+                        src={course.image} 
+                        alt={course.title} 
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'inline-block';
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ fontSize: '48px', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))', display: course.image ? 'none' : 'inline-block' }}>
+                      {course.emoji}
+                    </span>
                   </div>
                   <div className="course-card-content">
                     <h3 className="course-card-title">{course.title}</h3>
                     <p className="course-card-description">{course.desc}</p>
 
+                    <div style={{ margin: '12px 0', fontSize: '18px', fontWeight: 'bold', color: '#1B1F3B' }}>
+                      <del style={{ color: '#94a3b8', marginRight: '8px', fontSize: '14px' }}>₹{course.originalPrice || '4999'}</del>
+                      ₹{course.price || '999'}
+                    </div>
 
                     <div className="course-card-footer">
                       <button
@@ -335,12 +354,22 @@ export default function Courses() {
                       >
                         Details
                       </button>
-                      <button
-                        onClick={() => navigate(`/register?type=student&course=${encodeURIComponent(course.title)}`)}
-                        className="btn-register-course"
-                      >
-                        Register
-                      </button>
+                      {user ? (
+                        <button
+                          onClick={() => navigate('/dashboard')}
+                          className="btn-register-course"
+                        >
+                          Dashboard
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/register?type=student&course=${encodeURIComponent(course.title)}`)}
+                          className="btn-register-course"
+                          style={{ fontSize: '12px', padding: '8px 12px' }}
+                        >
+                          Sign up & Buy
+                        </button>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -433,8 +462,12 @@ export default function Courses() {
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="modal-header" style={{ background: selectedCourse.gradient }}>
-                <span className="modal-emoji">{selectedCourse.emoji}</span>
+              <div className="modal-header" style={{ 
+                background: selectedCourse.image ? `url(${selectedCourse.image})` : selectedCourse.gradient,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}>
+                <span className="modal-emoji" style={{ display: selectedCourse.image ? 'none' : 'block' }}>{selectedCourse.emoji}</span>
                 <button className="modal-close" onClick={() => setSelectedCourse(null)}>&times;</button>
               </div>
 
@@ -455,6 +488,42 @@ export default function Courses() {
                       <li key={idx}>✨ {item}</li>
                     ))}
                   </ul>
+                </div>
+
+                <div className="modal-syllabus-section" style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px dashed #E2E8F0' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 750, color: '#0F172A', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>🚀</span> Premium Advantages
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <svg style={{ color: '#10B981', flexShrink: 0, marginTop: '2px' }} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13.5px', color: '#1E293B', marginBottom: '2px' }}>Certified Program</strong>
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Globally recognized</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <svg style={{ color: '#10B981', flexShrink: 0, marginTop: '2px' }} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13.5px', color: '#1E293B', marginBottom: '2px' }}>Expert Mentors</strong>
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Top industry pros</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <svg style={{ color: '#10B981', flexShrink: 0, marginTop: '2px' }} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13.5px', color: '#1E293B', marginBottom: '2px' }}>Placement Aid</strong>
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Interview support</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <svg style={{ color: '#10B981', flexShrink: 0, marginTop: '2px' }} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13.5px', color: '#1E293B', marginBottom: '2px' }}>Real Projects</strong>
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Hands-on training</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -4,10 +4,58 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const httpServer = http.createServer(app);
+
+// Socket.io Setup
+const io = new Server(httpServer, {
+  cors: {
+    origin: true,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log(`Socket connected: ${socket.id}`);
+
+  // Join a room based on class ID
+  socket.on('join_class_room', (classId) => {
+    socket.join(classId);
+    console.log(`Socket ${socket.id} joined room ${classId}`);
+  });
+
+  // Student requests to join
+  socket.on('join_request', (data) => {
+    // data should contain { classId, studentId, studentName, studentEmail }
+    console.log('join_request', data);
+    // Broadcast to the room (trainer will receive this)
+    socket.to(data.classId).emit('student_waiting', { ...data, socketId: socket.id });
+  });
+
+  // Trainer admits student
+  socket.on('admit_student', (data) => {
+    // data should contain { socketId, meetingLink }
+    console.log('admit_student', data);
+    io.to(data.socketId).emit('admitted', { meetingLink: data.meetingLink });
+  });
+
+  // Trainer denies student
+  socket.on('deny_student', (data) => {
+    // data should contain { socketId }
+    console.log('deny_student', data);
+    io.to(data.socketId).emit('denied');
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Socket disconnected: ${socket.id}`);
+  });
+});
 
 // Middleware — handle CORS preflight explicitly
 app.use(cors({
@@ -30,15 +78,20 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const COURSES_FILE = path.join(DATA_DIR, 'courses.json');
+const LIVE_CLASSES_FILE = path.join(DATA_DIR, 'liveClasses.json');
+const ACTIVITY_FILE = path.join(DATA_DIR, 'activities.json');
+const ASSIGNMENTS_FILE = path.join(DATA_DIR, 'assignments.json');
+const CERTIFICATES_FILE = path.join(DATA_DIR, 'certificates.json');
+const COMPANY_COURSES_FILE = path.join(DATA_DIR, 'companyCourses.json');
 
 const DEFAULT_COURSES = [
   { id: '1', title: 'Embedded Systems', content: 'Learn the fundamentals of Embedded Systems, microcontrollers, assembly, and C programming for hardware interfaces.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
-  { id: '2', title: 'Electric Vehicles', content: 'Explore Electric Vehicle powertrain, battery management systems, motor control, and EV architecture.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
+  { id: '2', title: 'Electric Vechicle', content: 'Explore Electric Vehicle powertrain, battery management systems, motor control, and EV architecture.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '3', title: 'MERN Stack Development', content: 'Master MongoDB, Express.js, React, and Node.js to build modern, full-stack web applications.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '4', title: 'IoT & Sensor Networks', content: 'Build smart connected devices using sensor technology, wireless protocols, and cloud platforms.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '5', title: 'Python for Data Science', content: 'Learn core Python concepts, data analysis with NumPy/Pandas, and visualization tools.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '6', title: 'Machine Learning Fundamentals', content: 'Introduction to supervised and unsupervised machine learning algorithms, training models, and validation.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
-  { id: '7', title: 'Cloud Computing (AWS)', content: 'Deploy and maintain scalable web architectures on Amazon Web Services cloud infrastructure.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
+  { id: '7', title: 'Cloud Computing', content: 'Deploy and maintain scalable web architectures on Amazon Web Services cloud infrastructure.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '8', title: 'Cybersecurity Essentials', content: 'Protect networks and systems against digital threats, understand cryptography and secure practices.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '9', title: 'Digital Marketing', content: 'Strategies for online marketing, search engine optimization, content creation, and analytics tools.', image: '', ppt: '', pptName: '', video: '', videoName: '' },
   { id: '10', title: 'AutoCAD & Mechanical Design', content: 'Create precise 2D drafting and 3D modeling specifications for mechanical parts and assemblies.', image: '', ppt: '', pptName: '', video: '', videoName: '' }
@@ -52,6 +105,21 @@ if (!fs.existsSync(USERS_FILE)) {
 }
 if (!fs.existsSync(COURSES_FILE)) {
   fs.writeFileSync(COURSES_FILE, JSON.stringify(DEFAULT_COURSES, null, 2));
+}
+if (!fs.existsSync(LIVE_CLASSES_FILE)) {
+  fs.writeFileSync(LIVE_CLASSES_FILE, JSON.stringify([]));
+}
+if (!fs.existsSync(ACTIVITY_FILE)) {
+  fs.writeFileSync(ACTIVITY_FILE, JSON.stringify([]));
+}
+if (!fs.existsSync(ASSIGNMENTS_FILE)) {
+  fs.writeFileSync(ASSIGNMENTS_FILE, JSON.stringify([]));
+}
+if (!fs.existsSync(CERTIFICATES_FILE)) {
+  fs.writeFileSync(CERTIFICATES_FILE, JSON.stringify([]));
+}
+if (!fs.existsSync(COMPANY_COURSES_FILE)) {
+  fs.writeFileSync(COMPANY_COURSES_FILE, JSON.stringify([]));
 }
 
 // Read/write local users fallback
@@ -70,6 +138,59 @@ const saveLocalUser = (user) => {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 };
 
+function formatAMPM(date) {
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+  return hours + ':' + minutes + ' ' + ampm;
+}
+
+function generateSchedule(startDateStr, dailyStartTime, totalHours, days) {
+  const schedule = [];
+  if (!startDateStr || !dailyStartTime || !totalHours || !days) return schedule;
+
+  const hoursPerDay = Number(totalHours) / Number(days);
+  let currentStart = new Date(startDateStr);
+  if (isNaN(currentStart.getTime())) return schedule;
+
+  let startHour = 10;
+  let startMin = 0;
+  const timeMatch = dailyStartTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (timeMatch) {
+    startHour = parseInt(timeMatch[1], 10);
+    startMin = parseInt(timeMatch[2], 10);
+    const ampm = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+    if (ampm === 'PM' && startHour < 12) startHour += 12;
+    if (ampm === 'AM' && startHour === 12) startHour = 0;
+  }
+
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(currentStart);
+    d.setDate(d.getDate() + (i - 1));
+
+    const dStart = new Date(d);
+    dStart.setHours(startHour, startMin, 0);
+    const startStr = formatAMPM(dStart);
+
+    const dEnd = new Date(dStart);
+    dEnd.setMinutes(dEnd.getMinutes() + hoursPerDay * 60);
+    const endStr = formatAMPM(dEnd);
+
+    schedule.push({
+      dayNumber: i,
+      date: d, // ISO format for easy rendering on frontend
+      startTime: startStr,
+      endTime: endStr,
+      durationHours: hoursPerDay,
+      status: 'Upcoming'
+    });
+  }
+  return schedule;
+}
+
 const getLocalCourses = () => {
   try {
     const data = fs.readFileSync(COURSES_FILE, 'utf8');
@@ -83,14 +204,71 @@ const saveLocalCourses = (courses) => {
   fs.writeFileSync(COURSES_FILE, JSON.stringify(courses, null, 2));
 };
 
+const getLocalLiveClasses = () => {
+  try {
+    const data = fs.readFileSync(LIVE_CLASSES_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveLocalLiveClasses = (classes) => {
+  fs.writeFileSync(LIVE_CLASSES_FILE, JSON.stringify(classes, null, 2));
+};
+
+const getLocalActivities = () => {
+  try {
+    const data = fs.readFileSync(ACTIVITY_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveLocalActivities = (activities) => {
+  fs.writeFileSync(ACTIVITY_FILE, JSON.stringify(activities, null, 2));
+};
+
+const getLocalAssignments = () => {
+  try { return JSON.parse(fs.readFileSync(ASSIGNMENTS_FILE, 'utf8')); } catch (err) { return []; }
+};
+const saveLocalAssignments = (data) => {
+  fs.writeFileSync(ASSIGNMENTS_FILE, JSON.stringify(data, null, 2));
+};
+
+const getLocalCertificates = () => {
+  try { return JSON.parse(fs.readFileSync(CERTIFICATES_FILE, 'utf8')); } catch (err) { return []; }
+};
+const saveLocalCertificates = (data) => {
+  fs.writeFileSync(CERTIFICATES_FILE, JSON.stringify(data, null, 2));
+};
+
+const getLocalCompanyCourses = () => {
+  try { return JSON.parse(fs.readFileSync(COMPANY_COURSES_FILE, 'utf8')); } catch (err) { return []; }
+};
+const saveLocalCompanyCourses = (data) => {
+  fs.writeFileSync(COMPANY_COURSES_FILE, JSON.stringify(data, null, 2));
+};
+
 // Schema definition (only used if MongoDB is active)
 const userSchema = new mongoose.Schema({
   fullName: { type: String },
+  companyName: { type: String },
   email: { type: String, required: true, unique: true },
   phone: { type: String },
   password: { type: String, required: true },
   role: { type: String, default: 'student' },
   assignedCourses: { type: [String], default: [] },
+  assignedStudents: { type: [String], default: [] },
+  assignedTrainers: { type: [String], default: [] },
+  profilePhoto: { type: String },
+  college: { type: String },
+  department: { type: String },
+  knowledge: { type: String },
+  experience: { type: String },
+  expertise: { type: String },
+  linkedin: { type: String },
   createdAt: { type: Date, default: Date.now }
 }, { strict: false });
 
@@ -104,15 +282,31 @@ try {
 const courseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   name: { type: String },
+  originalPrice: { type: String },
   price: { type: String },
   description: { type: String },
-  image: { type: String }, // path to static image file
+  image: { type: String }, 
   content: { type: String, required: true },
-  ppt: { type: String }, // path to static PPT file
-  pptName: { type: String }, // original file name
-  video: { type: String }, // path to static video file
-  videoName: { type: String }, // original file name
+  ppt: { type: String }, 
+  pptName: { type: String }, 
+  video: { type: String }, 
+  videoName: { type: String }, 
   programType: { type: String, default: 'Student Development Program' },
+  
+  // Schedule Fields
+  totalDurationHours: { type: Number },
+  trainingDays: { type: Number },
+  startDate: { type: Date },
+  dailyStartTime: { type: String },
+  schedule: [{
+    dayNumber: Number,
+    date: Date,
+    startTime: String,
+    endTime: String,
+    durationHours: Number,
+    status: { type: String, default: 'Upcoming' }
+  }],
+  
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -123,6 +317,105 @@ try {
   Course = mongoose.models.Course;
 }
 
+const activitySchema = new mongoose.Schema({
+  actor: { type: String, required: true },
+  action: { type: String, required: true },
+  details: { type: String },
+  timestamp: { type: Date, default: Date.now }
+});
+
+let Activity;
+try {
+  Activity = mongoose.model('Activity', activitySchema);
+} catch (err) {
+  Activity = mongoose.models.Activity;
+}
+
+const liveClassSchema = new mongoose.Schema({
+  courseId: { type: String, required: true },
+  courseTitle: { type: String },
+  trainerId: { type: String, required: true },
+  studentIds: { type: [String], default: [] },
+  timing: { type: String, required: true },
+  duration: { type: String, required: true },
+  assignedByRole: { type: String, default: 'admin' },
+  assignerId: { type: String },
+  createdAt: { type: Date, default: Date.now }
+}, { strict: false });
+
+let LiveClass;
+try {
+  LiveClass = mongoose.model('LiveClass', liveClassSchema);
+} catch (err) {
+  LiveClass = mongoose.models.LiveClass;
+}
+
+const assignmentSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String },
+  dueDate: { type: Date },
+  assignedTo: { type: [String], default: [] }, // array of emails
+  createdBy: { type: String, required: true }, // company email
+  courseTitle: { type: String },
+  timestamp: { type: Date, default: Date.now }
+});
+
+let Assignment;
+try {
+  Assignment = mongoose.model('Assignment', assignmentSchema);
+} catch (err) {
+  Assignment = mongoose.models.Assignment;
+}
+
+const certificateSchema = new mongoose.Schema({
+  studentEmail: { type: String, required: true },
+  courseTitle: { type: String, required: true },
+  issuedBy: { type: String, required: true }, // company email
+  issueDate: { type: Date, default: Date.now },
+  certificateUrl: { type: String } // optional link/file
+});
+
+let Certificate;
+try {
+  Certificate = mongoose.model('Certificate', certificateSchema);
+} catch (err) {
+  Certificate = mongoose.models.Certificate;
+}
+
+const companyCourseSchema = new mongoose.Schema({
+  id: String,
+  title: String,
+  syllabus: String,
+  image: String,
+  price: Number,
+  originalPrice: Number,
+  companyName: String,
+  status: { type: String, default: 'pending' }, // 'pending' or 'approved'
+  
+  // Schedule Fields
+  totalDurationHours: { type: Number },
+  trainingDays: { type: Number },
+  startDate: { type: Date },
+  dailyStartTime: { type: String },
+  schedule: [{
+    dayNumber: Number,
+    date: Date,
+    startTime: String,
+    endTime: String,
+    durationHours: Number,
+    status: { type: String, default: 'Upcoming' }
+  }],
+  
+  createdAt: { type: Date, default: Date.now }
+});
+
+let CompanyCourse;
+try {
+  CompanyCourse = mongoose.model('CompanyCourse', companyCourseSchema);
+} catch (err) {
+  CompanyCourse = mongoose.models.CompanyCourse;
+}
+
 const accessRequestSchema = new mongoose.Schema({
   requesterEmail: { type: String, required: true },
   targetEmail: { type: String, required: true },
@@ -130,6 +423,7 @@ const accessRequestSchema = new mongoose.Schema({
   targetName: { type: String },
   requesterRole: { type: String },
   targetRole: { type: String },
+  requestType: { type: String },
   status: { type: String, default: 'Pending', enum: ['Pending', 'Approved', 'Rejected'] },
   createdAt: { type: Date, default: Date.now }
 });
@@ -140,6 +434,43 @@ try {
 } catch (e) {
   AccessRequest = mongoose.models.AccessRequest;
 }
+
+const jobOfferSchema = new mongoose.Schema({
+  companyId: { type: String, required: true },
+  title: { type: String, required: true },
+  description: { type: String },
+  requirements: { type: Object }, // e.g., { skills: [], degree: '', experience: '' }
+  status: { type: String, default: 'Pending', enum: ['Pending', 'Approved', 'SentToStudents', 'Closed'] },
+  targetedStudents: { type: [String], default: [] },
+  selectedStudents: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+
+let JobOffer;
+try {
+  JobOffer = mongoose.model('JobOffer', jobOfferSchema);
+} catch (e) {
+  JobOffer = mongoose.models.JobOffer;
+}
+
+const JOB_OFFERS_FILE = path.join(DATA_DIR, 'job_offers.json');
+if (!fs.existsSync(JOB_OFFERS_FILE)) {
+  fs.writeFileSync(JOB_OFFERS_FILE, JSON.stringify([]));
+}
+
+const getLocalJobOffers = () => {
+  try {
+    const data = fs.readFileSync(JOB_OFFERS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveLocalJobOffers = (jobs) => {
+  fs.writeFileSync(JOB_OFFERS_FILE, JSON.stringify(jobs, null, 2));
+};
+
 
 const REQUESTS_FILE = path.join(DATA_DIR, 'access_requests.json');
 if (!fs.existsSync(REQUESTS_FILE)) {
@@ -182,14 +513,9 @@ mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 3000 })
     console.log('MongoDB connected.');
     isMongoConnected = true;
     try {
-      const count = await Course.countDocuments();
-      if (count === 0) {
-        // Map and insert, stripping default ID for MongoDB
-        await Course.insertMany(DEFAULT_COURSES.map(({ id, ...c }) => c));
-        console.log('Default courses initialized in MongoDB.');
-      }
+      // Seeding disabled to prevent duplicate courses
     } catch (err) {
-      console.error('Error initializing default courses:', err);
+      console.error(err);
     }
   })
   .catch(async () => {
@@ -328,7 +654,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     if (Object.keys(errors).length > 0) {
-      return res.status(400).json({ success: false, errors });
+      return res.json({ success: false, errors });
     }
 
     const userData = {
@@ -345,21 +671,43 @@ app.post('/api/auth/register', async (req, res) => {
     if (isMongoConnected) {
       const existingUser = await User.findOne({ email });
       if (existingUser) {
-        return res.status(400).json({ success: false, errors: { email: 'Email is already registered.' } });
+        return res.json({ success: false, errors: { email: 'Email is already registered.' } });
       }
 
       // Create new user in Mongo
       const newUser = new User(userData);
       await newUser.save();
+
+      // If registered by a company, auto-associate the trainer's email
+      if (userRole === 'trainer' && req.body.companyEmail) {
+        await User.findOneAndUpdate(
+          { email: req.body.companyEmail },
+          { $addToSet: { assignedTrainers: email } }
+        );
+      }
+
       await sendRegistrationEmail(email, fullName, userRole, password);
       return res.status(201).json({ success: true, message: 'Registration successful!', user: { fullName, email, role: userRole } });
     } else {
       const localUsers = getLocalUsers();
       if (localUsers.some(u => u.email === email)) {
-        return res.status(400).json({ success: false, errors: { email: 'Email is already registered.' } });
+        return res.json({ success: false, errors: { email: 'Email is already registered.' } });
       }
 
       saveLocalUser(userData);
+
+      // If registered by a company locally, auto-associate the trainer's email
+      if (userRole === 'trainer' && req.body.companyEmail) {
+        const companyIndex = localUsers.findIndex(u => u.email === req.body.companyEmail);
+        if (companyIndex !== -1) {
+          if (!localUsers[companyIndex].assignedTrainers) localUsers[companyIndex].assignedTrainers = [];
+          if (!localUsers[companyIndex].assignedTrainers.includes(email)) {
+            localUsers[companyIndex].assignedTrainers.push(email);
+            fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+          }
+        }
+      }
+
       await sendRegistrationEmail(email, fullName, userRole, password);
       return res.status(201).json({ success: true, message: 'Registration successful (stored locally)!', user: { fullName, email, role: userRole } });
     }
@@ -372,11 +720,12 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = (req.body.email || '').trim();
+    const password = (req.body.password || '').trim();
     console.log(`[LOGIN ATTEMPT] Email: "${email}", Password: "${password}"`);
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+      return res.json({ success: false, message: 'Email and password are required.' });
     }
 
     // Hardcoded admin account
@@ -392,34 +741,74 @@ app.post('/api/auth/login', async (req, res) => {
       const user = await User.findOne({ email });
       if (!user) {
         console.log(`[LOGIN FAILED] User not found in MongoDB: "${email}"`);
-        return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+        return res.json({ success: false, message: 'Invalid email or password.' });
       }
       // Trigger nodemon reload for port release
       console.log(`[LOGIN DB COMPARISON] Stored Password: "${user.password}", Input Password: "${password}"`);
       if (user.password !== password) {
         console.log(`[LOGIN FAILED] Password mismatch for: "${email}"`);
-        return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+        return res.json({ success: false, message: 'Invalid email or password.' });
       }
       console.log(`[LOGIN SUCCESS] User logged in: ${email}`);
-      return res.json({ success: true, message: 'Login successful!', user: { fullName: user.fullName, email: user.email, college: user.college, department: user.department, role: user.role } });
+      const { password: _, ...userWithoutPassword } = user.toObject();
+      return res.json({ success: true, message: 'Login successful!', user: { id: user._id, ...userWithoutPassword } });
     } else {
       const localUsers = getLocalUsers();
       const user = localUsers.find(u => u.email === email);
       if (!user) {
         console.log(`[LOGIN FAILED] User not found locally: "${email}"`);
-        return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+        return res.json({ success: false, message: 'Invalid email or password.' });
       }
       console.log(`[LOGIN LOCAL COMPARISON] Stored Password: "${user.password}", Input Password: "${password}"`);
       if (user.password !== password) {
         console.log(`[LOGIN FAILED] Local password mismatch for: "${email}"`);
-        return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+        return res.json({ success: false, message: 'Invalid email or password.' });
       }
-      console.log(`[LOGIN SUCCESS] Local user logged in: ${email}`);
-      return res.json({ success: true, message: 'Login successful!', user: { fullName: user.fullName, email: user.email, college: user.college, department: user.department, role: user.role } });
+      console.log(`[LOGIN SUCCESS] User logged in locally: ${email}`);
+      const { password: _, ...userWithoutPassword } = user;
+      return res.json({ success: true, message: 'Login successful!', user: userWithoutPassword });
     }
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, message: 'An internal server error occurred.' });
+  }
+});
+
+// POST /api/auth/change-password
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+    if (!email || !currentPassword || !newPassword) {
+      return res.json({ success: false, message: 'Missing required fields.' });
+    }
+
+    if (isMongoConnected) {
+      const user = await User.findOne({ email });
+      if (!user) return res.json({ success: false, message: 'User not found.' });
+      
+      if (user.password !== currentPassword) {
+        return res.json({ success: false, message: 'Incorrect current password.' });
+      }
+      
+      user.password = newPassword;
+      await user.save();
+      return res.json({ success: true, message: 'Password changed successfully.' });
+    } else {
+      const localUsers = getLocalUsers();
+      const userIndex = localUsers.findIndex(u => u.email === email);
+      if (userIndex === -1) return res.json({ success: false, message: 'User not found.' });
+      
+      if (localUsers[userIndex].password !== currentPassword) {
+        return res.json({ success: false, message: 'Incorrect current password.' });
+      }
+      
+      localUsers[userIndex].password = newPassword;
+      fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+      return res.json({ success: true, message: 'Password changed successfully.' });
+    }
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 });
 
@@ -474,7 +863,7 @@ app.get('/api/courses', async (req, res) => {
 
 app.post('/api/admin/courses', async (req, res) => {
   try {
-    const { title, name, price, description, image, imageFile, content, ppt, pptFile, video, videoFile, programType } = req.body;
+    const { title, name, originalPrice, price, description, image, imageFile, content, ppt, pptFile, video, videoFile, programType, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
     const finalContent = content || description || 'No description provided';
     if (!title || !finalContent) {
       return res.status(400).json({ success: false, message: 'Title and content/description are required.' });
@@ -484,9 +873,12 @@ app.post('/api/admin/courses', async (req, res) => {
     const pptPath = saveUploadedFile(ppt, pptFile);
     const videoPath = saveUploadedFile(video, videoFile);
 
+    const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
+
     const courseData = {
       title,
       name: name || '',
+      originalPrice: originalPrice || '',
       price: price || '',
       description: description || '',
       image: imagePath || '',
@@ -496,6 +888,11 @@ app.post('/api/admin/courses', async (req, res) => {
       video: videoPath || '',
       videoName: videoFile || '',
       programType: programType || 'Student Development Program',
+      totalDurationHours: totalDurationHours || 0,
+      trainingDays: trainingDays || 0,
+      startDate: startDate || null,
+      dailyStartTime: dailyStartTime || '',
+      schedule: generatedSchedule,
       createdAt: new Date()
     };
 
@@ -520,12 +917,14 @@ app.post('/api/admin/courses', async (req, res) => {
 app.put('/api/admin/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, name, price, description, image, imageFile, content, ppt, pptFile, video, videoFile, programType } = req.body;
+    const { title, name, originalPrice, price, description, image, imageFile, content, ppt, pptFile, video, videoFile, programType, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
     const finalContent = content || description || 'No description provided';
 
     if (!title || !finalContent) {
       return res.status(400).json({ success: false, message: 'Title and content/description are required.' });
     }
+
+    const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
 
     if (isMongoConnected) {
       const existing = await Course.findById(id);
@@ -550,6 +949,7 @@ app.put('/api/admin/courses/:id', async (req, res) => {
 
       existing.title = title;
       existing.name = name || '';
+      existing.originalPrice = originalPrice || '';
       existing.price = price || '';
       existing.description = description || '';
       existing.image = imagePath || existing.image;
@@ -559,6 +959,14 @@ app.put('/api/admin/courses/:id', async (req, res) => {
       existing.video = videoPath || existing.video;
       existing.videoName = videoFile || existing.videoName;
       existing.programType = programType || existing.programType || 'Student Development Program';
+      
+      existing.totalDurationHours = totalDurationHours !== undefined ? totalDurationHours : existing.totalDurationHours;
+      existing.trainingDays = trainingDays !== undefined ? trainingDays : existing.trainingDays;
+      existing.startDate = startDate !== undefined ? startDate : existing.startDate;
+      existing.dailyStartTime = dailyStartTime !== undefined ? dailyStartTime : existing.dailyStartTime;
+      if (generatedSchedule.length > 0) {
+        existing.schedule = generatedSchedule;
+      }
 
       await existing.save();
       return res.json({ success: true, message: 'Course updated successfully!', course: existing });
@@ -598,7 +1006,12 @@ app.put('/api/admin/courses/:id', async (req, res) => {
         pptName: pptFile || existing.pptName,
         video: videoPath || existing.video,
         videoName: videoFile || existing.videoName,
-        programType: programType || existing.programType || 'Student Development Program'
+        programType: programType || existing.programType || 'Student Development Program',
+        totalDurationHours: totalDurationHours !== undefined ? totalDurationHours : existing.totalDurationHours,
+        trainingDays: trainingDays !== undefined ? trainingDays : existing.trainingDays,
+        startDate: startDate !== undefined ? startDate : existing.startDate,
+        dailyStartTime: dailyStartTime !== undefined ? dailyStartTime : existing.dailyStartTime,
+        schedule: generatedSchedule.length > 0 ? generatedSchedule : existing.schedule,
       };
 
       saveLocalCourses(localCourses);
@@ -607,6 +1020,54 @@ app.put('/api/admin/courses/:id', async (req, res) => {
   } catch (err) {
     console.error('Error updating course:', err);
     res.status(500).json({ success: false, message: 'Server error updating course.' });
+  }
+});
+
+// Mark course as complete
+app.post('/api/users/:userId/complete-course', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { courseTitle } = req.body;
+
+    if (!courseTitle) {
+      return res.status(400).json({ success: false, message: 'Course title is required' });
+    }
+
+    if (isMongoConnected) {
+      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+      
+      if (!user.completedCourses) {
+        user.completedCourses = [];
+      }
+      
+      if (!user.completedCourses.includes(courseTitle)) {
+        user.completedCourses.push(courseTitle);
+        // Using strict:false allows saving properties not strictly defined in the schema
+        await user.save();
+      }
+
+      return res.json({ success: true, message: 'Course marked as completed', user });
+    } else {
+      // Local fallback
+      const users = getLocalUsers();
+      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      if (userIndex === -1) return res.status(404).json({ success: false, message: 'User not found' });
+
+      if (!users[userIndex].completedCourses) {
+        users[userIndex].completedCourses = [];
+      }
+      
+      if (!users[userIndex].completedCourses.includes(courseTitle)) {
+        users[userIndex].completedCourses.push(courseTitle);
+        saveLocalUsers(users);
+      }
+
+      return res.json({ success: true, message: 'Course marked as completed', user: users[userIndex] });
+    }
+  } catch (err) {
+    console.error('Error completing course:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -619,6 +1080,20 @@ app.delete('/api/admin/courses/:id', async (req, res) => {
       if (!deleted) {
         return res.status(404).json({ success: false, message: 'Course not found.' });
       }
+
+      // Clean up references to the deleted course title from all users' assignedCourses
+      const courseTitle = deleted.title;
+      try {
+        const User = mongoose.model('User');
+        await User.updateMany(
+          {},
+          { $pull: { assignedCourses: courseTitle } }
+        );
+        console.log(`Pulled deleted course "${courseTitle}" from all users.`);
+      } catch (userErr) {
+        console.error('Error pulling deleted course from users:', userErr);
+      }
+
       deleteUploadedFile(deleted.image);
       deleteUploadedFile(deleted.ppt);
       deleteUploadedFile(deleted.video);
@@ -632,6 +1107,24 @@ app.delete('/api/admin/courses/:id', async (req, res) => {
       const deleted = localCourses.splice(idx, 1)[0];
       saveLocalCourses(localCourses);
 
+      // Clean up local users references too
+      const courseTitle = deleted.title;
+      try {
+        const localUsers = getLocalUsers();
+        let usersUpdated = false;
+        localUsers.forEach(u => {
+          if (u.assignedCourses && u.assignedCourses.includes(courseTitle)) {
+            u.assignedCourses = u.assignedCourses.filter(t => t !== courseTitle);
+            usersUpdated = true;
+          }
+        });
+        if (usersUpdated) {
+          fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+        }
+      } catch (localUserErr) {
+        console.error('Error pulling deleted course from local users:', localUserErr);
+      }
+
       deleteUploadedFile(deleted.image);
       deleteUploadedFile(deleted.ppt);
       deleteUploadedFile(deleted.video);
@@ -640,6 +1133,211 @@ app.delete('/api/admin/courses/:id', async (req, res) => {
   } catch (err) {
     console.error('Error deleting course:', err);
     res.status(500).json({ success: false, message: 'Server error deleting course.' });
+  }
+});
+
+// Live Classes Endpoints
+app.get('/api/live-classes', async (req, res) => {
+  try {
+    const { trainerId, studentId } = req.query;
+    let classes = [];
+
+    if (isMongoConnected) {
+      let query = { trainerId: { $exists: true, $ne: null }, timing: { $exists: true, $ne: null } };
+      
+      let finalTrainerId = trainerId;
+      let finalStudentId = studentId;
+
+      if (trainerId && trainerId.includes('@')) {
+        const tUser = await User.findOne({ email: trainerId });
+        if (tUser) finalTrainerId = tUser._id.toString();
+      }
+      if (studentId && studentId.includes('@')) {
+        const sUser = await User.findOne({ email: studentId });
+        if (sUser) finalStudentId = sUser._id.toString();
+      }
+
+      if (finalTrainerId) query.trainerId = finalTrainerId;
+      if (finalStudentId) query.studentIds = finalStudentId;
+      console.log('GET /api/live-classes query:', JSON.stringify(query));
+      classes = await LiveClass.find(query).sort({ createdAt: -1 });
+      console.log('GET /api/live-classes found:', classes.length);
+    } else {
+      classes = getLocalLiveClasses();
+      if (trainerId) {
+        classes = classes.filter(c => c.trainerId === trainerId);
+      }
+      if (studentId) {
+        classes = classes.filter(c => c.studentIds?.includes(studentId));
+      }
+    }
+    res.json({ success: true, liveClasses: classes });
+  } catch (err) {
+    console.error('Error fetching live classes:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.post('/api/live-classes', async (req, res) => {
+  try {
+    const { courseId, courseTitle, trainerId, studentIds, timing, duration, assignedByRole, assignerId } = req.body;
+    
+    if (isMongoConnected) {
+      const newClass = new LiveClass({
+        courseId,
+        courseTitle,
+        trainerId,
+        studentIds,
+        timing,
+        duration,
+        assignedByRole: assignedByRole || 'admin',
+        assignerId: assignerId || ''
+      });
+      await newClass.save();
+      
+      if (studentIds && studentIds.length > 0) {
+        const classDate = new Date(timing).toLocaleString();
+        const studentNotification = {
+          id: `lc_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to Live Class for course: ${courseTitle}. Date: ${classDate}, Session: ${duration}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        await User.updateMany(
+          { email: { $in: studentIds } },
+          { $push: { notifications: { $each: [studentNotification], $position: 0 } } }
+        );
+      }
+
+      res.json({ success: true, message: 'Live class scheduled successfully', liveClass: newClass });
+    } else {
+      const classes = getLocalLiveClasses();
+      const newClass = {
+        id: Date.now().toString(),
+        courseId,
+        courseTitle,
+        trainerId,
+        studentIds,
+        timing,
+        duration,
+        assignedByRole: assignedByRole || 'admin',
+        assignerId: assignerId || '',
+        createdAt: new Date().toISOString()
+      };
+      classes.push(newClass);
+      saveLocalLiveClasses(classes);
+      
+      if (studentIds && studentIds.length > 0) {
+        const classDate = new Date(timing).toLocaleString();
+        const studentNotification = {
+          id: `lc_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to Live Class for course: ${courseTitle}. Date: ${classDate}, Session: ${duration}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        const localUsers = getLocalUsers();
+        let changed = false;
+        studentIds.forEach(email => {
+          const idx = localUsers.findIndex(u => u.email === email);
+          if (idx !== -1) {
+            localUsers[idx].notifications = localUsers[idx].notifications || [];
+            localUsers[idx].notifications.unshift(studentNotification);
+            changed = true;
+          }
+        });
+        if (changed) {
+          fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+        }
+      }
+
+      res.json({ success: true, message: 'Live class scheduled successfully', liveClass: newClass });
+    }
+  } catch (err) {
+    console.error('Error creating live class:', err);
+    res.status(500).json({ success: false, message: 'Server error creating live class.' });
+  }
+});
+
+app.post('/api/live-classes/batch', async (req, res) => {
+  try {
+    const { classes } = req.body;
+    if (!classes || !Array.isArray(classes) || classes.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid batch data' });
+    }
+    
+    if (isMongoConnected) {
+      const docs = classes.map(c => ({
+        courseId: c.courseId,
+        courseTitle: c.courseTitle,
+        trainerId: c.trainerId,
+        studentIds: c.studentIds,
+        timing: c.timing,
+        duration: c.duration,
+        assignedByRole: c.assignedByRole || 'admin',
+        assignerId: c.assignerId || '',
+        dayNumber: c.dayNumber
+      }));
+      const inserted = await LiveClass.insertMany(docs);
+      
+      const allStudentIds = [...new Set(classes.flatMap(c => c.studentIds || []))];
+      if (allStudentIds.length > 0) {
+        const studentNotification = {
+          id: `lc_batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to a ${classes.length}-day Live Class for course: ${classes[0].courseTitle}.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        await User.updateMany(
+          { email: { $in: allStudentIds } },
+          { $push: { notifications: { $each: [studentNotification], $position: 0 } } }
+        );
+      }
+      res.json({ success: true, message: `${classes.length} Live classes scheduled successfully`, liveClasses: inserted });
+    } else {
+      const existingClasses = getLocalLiveClasses();
+      const newClasses = classes.map((c, i) => ({
+        id: Date.now().toString() + '_' + i,
+        courseId: c.courseId,
+        courseTitle: c.courseTitle,
+        trainerId: c.trainerId,
+        studentIds: c.studentIds,
+        timing: c.timing,
+        duration: c.duration,
+        assignedByRole: c.assignedByRole || 'admin',
+        assignerId: c.assignerId || '',
+        dayNumber: c.dayNumber,
+        createdAt: new Date().toISOString()
+      }));
+      existingClasses.push(...newClasses);
+      saveLocalLiveClasses(existingClasses);
+      
+      const allStudentIds = [...new Set(classes.flatMap(c => c.studentIds || []))];
+      if (allStudentIds.length > 0) {
+        const studentNotification = {
+          id: `lc_batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to a ${classes.length}-day Live Class for course: ${classes[0].courseTitle}.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        const users = getLocalUsers();
+        allStudentIds.forEach(email => {
+          const user = users.find(u => u.email === email);
+          if (user) {
+            user.notifications = user.notifications || [];
+            user.notifications.unshift(studentNotification);
+          }
+        });
+        saveLocalUsers(users);
+      }
+      res.json({ success: true, message: `${classes.length} Live classes scheduled successfully`, liveClasses: newClasses });
+    }
+  } catch (err) {
+    console.error('Error scheduling live class batch:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -749,9 +1447,15 @@ app.get('/api/users/:email', async (req, res) => {
 app.put('/api/users/:email/profile', async (req, res) => {
   try {
     const { email } = req.params;
-    const { fullName, phone, gender, year, district, college, department, profilePhoto, profilePhotoFile } = req.body;
+    const { fullName, phone, gender, year, district, college, department, profilePhoto, profilePhotoFile, companyName, contactPerson, industry, companySize, website, settings } = req.body;
     
     const updateData = { fullName, phone, gender, year, district, college, department };
+    if (companyName !== undefined) updateData.companyName = companyName;
+    if (contactPerson !== undefined) updateData.contactPerson = contactPerson;
+    if (industry !== undefined) updateData.industry = industry;
+    if (companySize !== undefined) updateData.companySize = companySize;
+    if (website !== undefined) updateData.website = website;
+    if (settings !== undefined) updateData.settings = settings;
 
     // Handle profile photo upload
     if (profilePhoto && profilePhotoFile) {
@@ -949,6 +1653,25 @@ app.put('/api/admin/access-requests/:id', async (req, res) => {
   }
 });
 
+// Admin endpoint to delete an access request
+app.delete('/api/admin/access-requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      await AccessRequest.findByIdAndDelete(id);
+      res.json({ success: true, message: 'Contact request removed successfully.' });
+    } else {
+      let reqs = getLocalRequests();
+      reqs = reqs.filter(r => r.id !== id && r._id !== id);
+      fs.writeFileSync(REQUESTS_FILE, JSON.stringify(reqs, null, 2));
+      res.json({ success: true, message: 'Contact request removed successfully.' });
+    }
+  } catch (err) {
+    console.error('Error deleting access request:', err);
+    res.status(500).json({ success: false, message: 'Server error deleting request.' });
+  }
+});
+
 // Admin endpoints
 app.get('/api/admin/users', async (req, res) => {
   try {
@@ -1034,28 +1757,101 @@ app.delete('/api/admin/users/:email', async (req, res) => {
 app.post('/api/admin/users/:email/assign', async (req, res) => {
   try {
     const { email } = req.params;
-    const { courses } = req.body; // array of courses
+    const { courses, trainers, students } = req.body; 
     
+    const updateFields = {};
+    if (courses !== undefined) updateFields.assignedCourses = courses;
+    if (trainers !== undefined) updateFields.assignedTrainers = trainers;
+    if (students !== undefined) updateFields.assignedStudents = students;
+    
+    const notification = trainers !== undefined ? {
+      id: `assign_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      sender: 'Super Admin',
+      text: `Your requested trainer has been assigned to your company.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+      createdAt: new Date()
+    } : null;
+
     if (isMongoConnected) {
-      const updated = await User.findOneAndUpdate(
-        { email },
-        { assignedCourses: courses },
-        { new: true }
-      );
-      if (!updated) return res.status(404).json({ success: false, message: 'Student not found.' });
-      return res.json({ success: true, message: 'Courses assigned successfully!', courses: updated.assignedCourses });
+      const user = await User.findOne({ email });
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+      let newTrainers = [];
+      if (trainers !== undefined) {
+         const oldTrainers = user.assignedTrainers || [];
+         newTrainers = trainers.filter(t => !oldTrainers.includes(t));
+      }
+
+      if (courses !== undefined) user.assignedCourses = courses;
+      if (trainers !== undefined) user.assignedTrainers = trainers;
+      if (students !== undefined) user.assignedStudents = students;
+      
+      if (notification) {
+        const notifications = user.get('notifications') || [];
+        notifications.unshift(notification);
+        user.set('notifications', notifications);
+      }
+      
+      await user.save();
+
+      if (newTrainers.length > 0) {
+        const trainerNotification = {
+          id: `t_assign_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to conduct training for company: ${user.fullName || user.companyName || email}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        await User.updateMany(
+          { email: { $in: newTrainers } },
+          { $push: { notifications: { $each: [trainerNotification], $position: 0 } } }
+        );
+      }
+      return res.json({ success: true, message: 'Assignments updated successfully!', data: updateFields });
     } else {
       const localUsers = getLocalUsers();
       const index = localUsers.findIndex(u => u.email === email);
-      if (index === -1) return res.status(404).json({ success: false, message: 'Student not found.' });
+      if (index === -1) return res.status(404).json({ success: false, message: 'User not found.' });
       
-      localUsers[index].assignedCourses = courses;
+      const user = localUsers[index];
+      let newTrainers = [];
+      if (trainers !== undefined) {
+         const oldTrainers = user.assignedTrainers || [];
+         newTrainers = trainers.filter(t => !oldTrainers.includes(t));
+      }
+
+      if (courses !== undefined) localUsers[index].assignedCourses = courses;
+      if (trainers !== undefined) localUsers[index].assignedTrainers = trainers;
+      if (students !== undefined) localUsers[index].assignedStudents = students;
+
+      if (notification) {
+        localUsers[index].notifications = localUsers[index].notifications || [];
+        localUsers[index].notifications.unshift(notification);
+      }
+
+      if (newTrainers.length > 0) {
+        const trainerNotification = {
+          id: `t_assign_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          sender: 'Super Admin',
+          text: `You have been assigned to conduct training for company: ${user.fullName || user.companyName || email}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+          createdAt: new Date()
+        };
+        newTrainers.forEach(trainerEmail => {
+          const tIdx = localUsers.findIndex(u => u.email === trainerEmail);
+          if (tIdx !== -1) {
+            localUsers[tIdx].notifications = localUsers[tIdx].notifications || [];
+            localUsers[tIdx].notifications.unshift(trainerNotification);
+          }
+        });
+      }
+
       fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
-      return res.json({ success: true, message: 'Courses assigned locally!', courses: localUsers[index].assignedCourses });
+      return res.json({ success: true, message: 'Assignments updated locally!', data: updateFields });
     }
   } catch (err) {
-    console.error('Error assigning courses:', err);
-    res.status(500).json({ success: false, message: 'Server error assigning courses.' });
+    console.error('Error assigning to user:', err);
+    res.status(500).json({ success: false, message: 'Server error assigning data.' });
   }
 });
 
@@ -1114,10 +1910,10 @@ const otpStore = {};
 // POST /api/auth/send-otp
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
-    const { email, phone, isRegister } = req.body;
+    const { email, phone, isRegister, skipUserCheck } = req.body;
     const identifier = email || phone;
     if (!identifier) {
-      return res.status(400).json({ success: false, message: 'Email or Phone is required.' });
+      return res.json({ success: false, message: 'Email or Phone is required.' });
     }
 
     // Check that this email/phone exists in the system
@@ -1135,13 +1931,15 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const adminEmails = ['admin@smgroups.com', 'thesmgroups@gmail.com'];
     if (email && adminEmails.includes(email)) userExists = true;
 
-    if (isRegister) {
-      if (userExists) {
-        return res.status(400).json({ success: false, message: `${email ? 'Email' : 'Phone number'} is already registered.` });
-      }
-    } else {
-      if (!userExists) {
-        return res.status(404).json({ success: false, message: `No account found with this ${email ? 'email' : 'phone number'}.` });
+    if (!skipUserCheck) {
+      if (isRegister) {
+        if (userExists) {
+          return res.json({ success: false, message: `${email ? 'Email' : 'Phone number'} is already registered.` });
+        }
+      } else {
+        if (!userExists) {
+          return res.json({ success: false, message: `No account found with this ${email ? 'email' : 'phone number'}.` });
+        }
       }
     }
 
@@ -1237,19 +2035,19 @@ app.post('/api/auth/verify-otp', (req, res) => {
     const { email, phone, otp } = req.body;
     const identifier = email || phone;
     if (!identifier || !otp) {
-      return res.status(400).json({ success: false, message: 'Identifier and OTP are required.' });
+      return res.json({ success: false, message: 'Identifier and OTP are required.' });
     }
 
     const record = otpStore[identifier];
     if (!record) {
-      return res.status(400).json({ success: false, message: 'OTP not found. Please request a new one.' });
+      return res.json({ success: false, message: 'OTP not found. Please request a new one.' });
     }
     if (Date.now() > record.expiresAt) {
       delete otpStore[identifier];
-      return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      return res.json({ success: false, message: 'OTP has expired. Please request a new one.' });
     }
     if (record.code !== otp.toString().trim()) {
-      return res.status(400).json({ success: false, message: 'Incorrect OTP. Please try again.' });
+      return res.json({ success: false, message: 'Incorrect OTP. Please try again.' });
     }
 
     // Mark OTP as verified (keep entry but flag it so reset can proceed)
@@ -1306,7 +2104,826 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-const server = app.listen(PORT, () => {
+// --- NEW ENDPOINTS (Directories, Profile, Course Assign) ---
+
+// GET /api/users - Fetch users by role
+app.get('/api/users', async (req, res) => {
+  try {
+    const role = req.query.role;
+    let users = [];
+    if (isMongoConnected) {
+      const query = role ? { role } : {};
+      users = await User.find(query).select('-password');
+    } else {
+      const localUsers = getLocalUsers().map(u => {
+        if (!u.role) {
+          if (u.expertise || u.experienceYears) u.role = 'trainer';
+          else if (u.hrEmail || u.companyName) u.role = 'company';
+          else u.role = 'student';
+        }
+        return u;
+      });
+      users = role ? localUsers.filter(u => u.role === role) : localUsers;
+      users = users.map(({ password, ...u }) => u);
+    }
+    return res.json({ success: true, users });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching users.' });
+  }
+});
+
+// PUT /api/users/profile - Update user profile
+app.put('/api/users/profile', async (req, res) => {
+  try {
+    const { email, fullName, phone, college, department, profilePhoto, knowledge, experience, industry, website, companySize, hrName } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+
+    let photoUrl;
+    if (profilePhoto && !profilePhoto.startsWith('/uploads/')) {
+      photoUrl = saveUploadedFile(profilePhoto, `profile_${Date.now()}.png`);
+    } else {
+      photoUrl = profilePhoto;
+    }
+
+    const updateData = { fullName, phone, college, department };
+    if (photoUrl) updateData.profilePhoto = photoUrl;
+    if (knowledge !== undefined) updateData.knowledge = knowledge;
+    if (experience !== undefined) updateData.experience = experience;
+    if (industry !== undefined) updateData.industry = industry;
+    if (website !== undefined) updateData.website = website;
+    if (companySize !== undefined) updateData.companySize = companySize;
+    if (hrName !== undefined) updateData.hrName = hrName;
+
+    if (isMongoConnected) {
+      const user = await User.findOneAndUpdate(
+        { email },
+        updateData,
+        { new: true }
+      ).select('-password');
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      return res.json({ success: true, message: 'Profile updated successfully.', user });
+    } else {
+      const localUsers = getLocalUsers();
+      const index = localUsers.findIndex(u => u.email === email);
+      if (index === -1) return res.status(404).json({ success: false, message: 'User not found.' });
+      
+      localUsers[index] = { ...localUsers[index], ...updateData };
+      fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+      const { password, ...userWithoutPassword } = localUsers[index];
+      return res.json({ success: true, message: 'Profile updated successfully.', user: userWithoutPassword });
+    }
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ success: false, message: 'Server error updating profile.' });
+  }
+});
+
+// POST /api/admin/assign-course - Assign a course to a student
+app.post('/api/admin/assign-course', async (req, res) => {
+  try {
+    const { email, courseId } = req.body;
+    if (!email || !courseId) {
+      return res.status(400).json({ success: false, message: 'Email and Course ID are required.' });
+    }
+
+    if (isMongoConnected) {
+      const user = await User.findOne({ email });
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      
+      if (!user.assignedCourses) user.assignedCourses = [];
+      if (!user.assignedCourses.includes(courseId)) {
+        user.assignedCourses.push(courseId);
+        await user.save();
+      }
+      return res.json({ success: true, message: 'Course assigned successfully.', assignedCourses: user.assignedCourses });
+    } else {
+      const localUsers = getLocalUsers();
+      const index = localUsers.findIndex(u => u.email === email);
+      if (index === -1) return res.status(404).json({ success: false, message: 'User not found.' });
+      
+      if (!localUsers[index].assignedCourses) localUsers[index].assignedCourses = [];
+      if (!localUsers[index].assignedCourses.includes(courseId)) {
+        localUsers[index].assignedCourses.push(courseId);
+        fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+      }
+      return res.json({ success: true, message: 'Course assigned successfully.', assignedCourses: localUsers[index].assignedCourses });
+    }
+  } catch (err) {
+    console.error('Error assigning course:', err);
+    res.status(500).json({ success: false, message: 'Server error assigning course.' });
+  }
+});
+
+// GET /api/users/:email/courses - Get a user's assigned courses
+app.get('/api/users/:email/courses', async (req, res) => {
+  try {
+    const { email } = req.params;
+    let assignedCourseIds = [];
+    
+    if (isMongoConnected) {
+      const user = await User.findOne({ email });
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      assignedCourseIds = user.assignedCourses || [];
+      
+      const validObjectIds = assignedCourseIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+      const titles = assignedCourseIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+      
+      const courses = await Course.find({ 
+        $or: [
+          { _id: { $in: validObjectIds } },
+          { title: { $in: titles } }
+        ]
+      });
+      return res.json({ success: true, courses });
+    } else {
+      const localUsers = getLocalUsers();
+      const user = localUsers.find(u => u.email === email);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      assignedCourseIds = user.assignedCourses || [];
+      const localCourses = getLocalCourses();
+      const courses = localCourses.filter(c => assignedCourseIds.includes(String(c.id)) || assignedCourseIds.includes(String(c._id)));
+      return res.json({ success: true, courses });
+    }
+  } catch (err) {
+    console.error('Error fetching assigned courses:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching assigned courses.' });
+  }
+});
+
+// --- PRIVACY ACCESS REQUESTS ---
+
+// POST /api/access-requests - Create a request
+app.post('/api/access-requests', async (req, res) => {
+  try {
+    const { requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole } = req.body;
+    if (!requesterEmail || !targetEmail) {
+      return res.status(400).json({ success: false, message: 'Missing emails.' });
+    }
+    
+    if (isMongoConnected) {
+      const existing = await AccessRequest.findOne({ requesterEmail, targetEmail });
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'Request already exists.' });
+      }
+      const newReq = new AccessRequest({ requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole });
+      await newReq.save();
+      return res.json({ success: true, message: 'Access request sent successfully.', request: newReq });
+    } else {
+      const REQUESTS_FILE = path.join(__dirname, 'data', 'accessRequests.json');
+      if (!fs.existsSync(REQUESTS_FILE)) fs.writeFileSync(REQUESTS_FILE, '[]');
+      const reqs = JSON.parse(fs.readFileSync(REQUESTS_FILE));
+      const existing = reqs.find(r => r.requesterEmail === requesterEmail && r.targetEmail === targetEmail);
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'Request already exists.' });
+      }
+      const newReq = { 
+        id: Date.now().toString(), 
+        requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole, 
+        status: 'Pending', createdAt: new Date().toISOString() 
+      };
+      reqs.push(newReq);
+      fs.writeFileSync(REQUESTS_FILE, JSON.stringify(reqs, null, 2));
+      return res.json({ success: true, message: 'Access request sent successfully.', request: newReq });
+    }
+  } catch (err) {
+    console.error('Error creating access request:', err);
+    res.status(500).json({ success: false, message: 'Server error creating request.' });
+  }
+});
+
+// GET /api/access-requests - Fetch requests
+app.get('/api/access-requests', async (req, res) => {
+  try {
+    const { requesterEmail } = req.query;
+    const query = requesterEmail ? { requesterEmail } : {};
+    
+    if (isMongoConnected) {
+      const reqs = await AccessRequest.find(query).sort({ createdAt: -1 });
+      return res.json({ success: true, requests: reqs });
+    } else {
+      const REQUESTS_FILE = path.join(__dirname, 'data', 'accessRequests.json');
+      if (!fs.existsSync(REQUESTS_FILE)) return res.json({ success: true, requests: [] });
+      const reqs = JSON.parse(fs.readFileSync(REQUESTS_FILE));
+      const filtered = requesterEmail ? reqs.filter(r => r.requesterEmail === requesterEmail) : reqs;
+      return res.json({ success: true, requests: filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+    }
+  } catch (err) {
+    console.error('Error fetching access requests:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching requests.' });
+  }
+});
+
+// PUT /api/access-requests/:id - Update status
+app.put('/api/access-requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (isMongoConnected) {
+      const updated = await AccessRequest.findByIdAndUpdate(id, { status }, { new: true });
+      if (!updated) return res.status(404).json({ success: false, message: 'Request not found.' });
+      return res.json({ success: true, request: updated });
+    } else {
+      const REQUESTS_FILE = path.join(__dirname, 'data', 'accessRequests.json');
+      if (!fs.existsSync(REQUESTS_FILE)) return res.status(404).json({ success: false, message: 'Request not found.' });
+      const reqs = JSON.parse(fs.readFileSync(REQUESTS_FILE));
+      const idx = reqs.findIndex(r => String(r.id) === String(id) || String(r._id) === String(id));
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Request not found.' });
+      reqs[idx].status = status;
+      fs.writeFileSync(REQUESTS_FILE, JSON.stringify(reqs, null, 2));
+      return res.json({ success: true, request: reqs[idx] });
+    }
+  } catch (err) {
+    console.error('Error updating access request:', err);
+    res.status(500).json({ success: false, message: 'Server error updating request.' });
+  }
+});
+
+// GET /api/activities - Get all activity logs
+app.get('/api/activities', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const activities = await Activity.find().sort({ timestamp: -1 }).lean();
+      res.json({ success: true, activities });
+    } else {
+      const activities = getLocalActivities();
+      activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      res.json({ success: true, activities });
+    }
+  } catch (err) {
+    console.error('Error fetching activities:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching activities.' });
+  }
+});
+
+// POST /api/activities - Log a new activity
+app.post('/api/activities', async (req, res) => {
+  try {
+    const { actor, action, details } = req.body;
+    if (!actor || !action) {
+      return res.status(400).json({ success: false, message: 'Actor and Action are required.' });
+    }
+
+    if (isMongoConnected) {
+      const newActivity = new Activity({ actor, action, details });
+      await newActivity.save();
+      res.json({ success: true, message: 'Activity logged successfully.', activity: newActivity });
+    } else {
+      const activities = getLocalActivities();
+      const newActivity = {
+        id: Date.now().toString(),
+        actor,
+        action,
+        details,
+        timestamp: new Date().toISOString()
+      };
+      activities.push(newActivity);
+      saveLocalActivities(activities);
+      res.json({ success: true, message: 'Activity logged successfully.', activity: newActivity });
+    }
+  } catch (err) {
+    console.error('Error logging activity:', err);
+    res.status(500).json({ success: false, message: 'Server error logging activity.' });
+  }
+});
+
+// DELETE /api/activities/:id - Remove an activity
+app.delete('/api/activities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      await Activity.findByIdAndDelete(id);
+      res.json({ success: true, message: 'Activity removed successfully.' });
+    } else {
+      let activities = getLocalActivities();
+      activities = activities.filter(a => a.id !== id && a._id !== id);
+      saveLocalActivities(activities);
+      res.json({ success: true, message: 'Activity removed successfully.' });
+    }
+  } catch (err) {
+    console.error('Error deleting activity:', err);
+    res.status(500).json({ success: false, message: 'Server error deleting activity.' });
+  }
+});
+
+// GET /api/assignments
+app.get('/api/assignments', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const assignments = await Assignment.find().sort({ timestamp: -1 }).lean();
+      res.json({ success: true, assignments });
+    } else {
+      res.json({ success: true, assignments: getLocalAssignments() });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching assignments' });
+  }
+});
+
+// POST /api/assignments
+app.post('/api/assignments', async (req, res) => {
+  try {
+    const { title, description, dueDate, assignedTo, createdBy, courseTitle } = req.body;
+    if (isMongoConnected) {
+      const newAssignment = new Assignment({ title, description, dueDate, assignedTo, createdBy, courseTitle });
+      await newAssignment.save();
+      res.json({ success: true, assignment: newAssignment });
+    } else {
+      const assignments = getLocalAssignments();
+      const newAssignment = { id: Date.now().toString(), title, description, dueDate, assignedTo, createdBy, courseTitle, timestamp: new Date().toISOString() };
+      assignments.push(newAssignment);
+      saveLocalAssignments(assignments);
+      res.json({ success: true, assignment: newAssignment });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating assignment' });
+  }
+});
+
+// GET /api/certificates
+app.get('/api/certificates', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const certificates = await Certificate.find().sort({ issueDate: -1 }).lean();
+      res.json({ success: true, certificates });
+    } else {
+      res.json({ success: true, certificates: getLocalCertificates() });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching certificates' });
+  }
+});
+
+// POST /api/certificates
+app.post('/api/certificates', async (req, res) => {
+  try {
+    const { studentEmail, courseTitle, issuedBy, certificateUrl } = req.body;
+    if (isMongoConnected) {
+      const newCertificate = new Certificate({ studentEmail, courseTitle, issuedBy, certificateUrl });
+      await newCertificate.save();
+      res.json({ success: true, certificate: newCertificate });
+    } else {
+      const certificates = getLocalCertificates();
+      const newCertificate = { id: Date.now().toString(), studentEmail, courseTitle, issuedBy, certificateUrl, issueDate: new Date().toISOString() };
+      certificates.push(newCertificate);
+      saveLocalCertificates(certificates);
+      res.json({ success: true, certificate: newCertificate });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating certificate' });
+  }
+});
+
+// GET /api/company-courses
+app.get('/api/company-courses', async (req, res) => {
+  try {
+    const { status } = req.query;
+    if (isMongoConnected) {
+      const query = status ? { status } : {};
+      const courses = await CompanyCourse.find(query).sort({ createdAt: -1 });
+      res.json({ success: true, courses });
+    } else {
+      let courses = getLocalCompanyCourses();
+      if (status) courses = courses.filter(c => c.status === status);
+      res.json({ success: true, courses: courses.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching company courses' });
+  }
+});
+
+// POST /api/company-courses
+app.post('/api/company-courses', async (req, res) => {
+  try {
+    const { title, syllabus, image, price, originalPrice, companyName, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
+    const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
+    
+    if (isMongoConnected) {
+      const newCourse = new CompanyCourse({
+        id: Date.now().toString(),
+        title, syllabus, image, price, originalPrice, companyName, status: 'pending',
+        totalDurationHours: totalDurationHours || 0,
+        trainingDays: trainingDays || 0,
+        startDate: startDate || null,
+        dailyStartTime: dailyStartTime || '',
+        schedule: generatedSchedule
+      });
+      await newCourse.save();
+      res.json({ success: true, course: newCourse });
+    } else {
+      const newCourse = {
+        id: Date.now().toString(),
+        title, syllabus, image, price, originalPrice, companyName, status: 'pending',
+        totalDurationHours: totalDurationHours || 0,
+        trainingDays: trainingDays || 0,
+        startDate: startDate || null,
+        dailyStartTime: dailyStartTime || '',
+        schedule: generatedSchedule,
+        createdAt: new Date().toISOString()
+      };
+      const courses = getLocalCompanyCourses();
+      courses.push(newCourse);
+      saveLocalCompanyCourses(courses);
+      res.json({ success: true, course: newCourse });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating company course' });
+  }
+});
+
+// PUT /api/company-courses/:id (Edit Course)
+app.put('/api/company-courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, syllabus, image, price, originalPrice, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
+    const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
+    if (isMongoConnected) {
+      const course = await CompanyCourse.findById(id).catch(() => CompanyCourse.findOne({ id }));
+      if (course) {
+        if (title) course.title = title;
+        if (syllabus) course.syllabus = syllabus;
+        if (image !== undefined) course.image = image;
+        if (price !== undefined) course.price = price;
+        if (originalPrice !== undefined) course.originalPrice = originalPrice;
+        
+        if (totalDurationHours !== undefined) course.totalDurationHours = totalDurationHours;
+        if (trainingDays !== undefined) course.trainingDays = trainingDays;
+        if (startDate !== undefined) course.startDate = startDate;
+        if (dailyStartTime !== undefined) course.dailyStartTime = dailyStartTime;
+        if (generatedSchedule.length > 0) course.schedule = generatedSchedule;
+        
+        await course.save();
+        res.json({ success: true, course });
+      } else {
+        res.status(404).json({ success: false, message: 'Course not found' });
+      }
+    } else {
+      const courses = getLocalCompanyCourses();
+      const courseIndex = courses.findIndex(c => c.id === id || c._id === id);
+      if (courseIndex !== -1) {
+        if (title) courses[courseIndex].title = title;
+        if (syllabus) courses[courseIndex].syllabus = syllabus;
+        if (image !== undefined) courses[courseIndex].image = image;
+        if (price !== undefined) courses[courseIndex].price = price;
+        if (originalPrice !== undefined) courses[courseIndex].originalPrice = originalPrice;
+        
+        if (totalDurationHours !== undefined) courses[courseIndex].totalDurationHours = totalDurationHours;
+        if (trainingDays !== undefined) courses[courseIndex].trainingDays = trainingDays;
+        if (startDate !== undefined) courses[courseIndex].startDate = startDate;
+        if (dailyStartTime !== undefined) courses[courseIndex].dailyStartTime = dailyStartTime;
+        if (generatedSchedule.length > 0) courses[courseIndex].schedule = generatedSchedule;
+        
+        saveLocalCompanyCourses(courses);
+        res.json({ success: true, course: courses[courseIndex] });
+      } else {
+        res.status(404).json({ success: false, message: 'Course not found' });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating course' });
+  }
+});
+
+// PUT /api/company-courses/:id/approve
+app.put('/api/company-courses/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      // Find by id whether it's ObjectId or string
+      const course = await CompanyCourse.findById(id).catch(() => CompanyCourse.findOne({ id }));
+      if (course) {
+        course.status = 'approved';
+        await course.save();
+        res.json({ success: true, course });
+      } else {
+        res.status(404).json({ success: false, message: 'Course not found' });
+      }
+    } else {
+      const courses = getLocalCompanyCourses();
+      const courseIndex = courses.findIndex(c => c.id === id || c._id === id);
+      if (courseIndex !== -1) {
+        courses[courseIndex].status = 'approved';
+        saveLocalCompanyCourses(courses);
+        res.json({ success: true, course: courses[courseIndex] });
+      } else {
+        res.status(404).json({ success: false, message: 'Course not found' });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error approving company course' });
+  }
+});
+
+// --- JOB OFFERS API ---
+
+// GET /api/jobs
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const { companyId, studentId } = req.query;
+    if (isMongoConnected) {
+      let query = {};
+      if (companyId) query.companyId = companyId;
+      if (studentId) query.targetedStudents = studentId;
+      const jobs = await JobOffer.find(query).sort({ createdAt: -1 });
+      res.json({ success: true, jobs });
+    } else {
+      let jobs = getLocalJobOffers();
+      if (companyId) jobs = jobs.filter(j => j.companyId === companyId);
+      if (studentId) jobs = jobs.filter(j => j.targetedStudents && j.targetedStudents.includes(studentId));
+      res.json({ success: true, jobs: jobs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching jobs' });
+  }
+});
+
+// POST /api/jobs
+app.post('/api/jobs', async (req, res) => {
+  try {
+    const { companyId, title, description, requirements } = req.body;
+    if (isMongoConnected) {
+      const newJob = new JobOffer({
+        companyId, title, description, requirements, status: 'Pending'
+      });
+      await newJob.save();
+      res.json({ success: true, job: newJob });
+    } else {
+      const newJob = {
+        _id: Date.now().toString(),
+        companyId, title, description, requirements, status: 'Pending',
+        targetedStudents: [], selectedStudents: [],
+        createdAt: new Date().toISOString()
+      };
+      const jobs = getLocalJobOffers();
+      jobs.push(newJob);
+      saveLocalJobOffers(jobs);
+      res.json({ success: true, job: newJob });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating job offer' });
+  }
+});
+
+// PUT /api/jobs/:id/send
+app.put('/api/jobs/:id/send', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentIds } = req.body; // Array of student IDs or emails
+
+    let jobObj;
+    if (isMongoConnected) {
+      const job = await JobOffer.findById(id);
+      if (job) {
+        job.targetedStudents = studentIds;
+        job.status = 'SentToStudents';
+        await job.save();
+        jobObj = job;
+      }
+    } else {
+      const jobs = getLocalJobOffers();
+      const jobIndex = jobs.findIndex(j => String(j._id) === String(id) || String(j.id) === String(id));
+      if (jobIndex !== -1) {
+        jobs[jobIndex].targetedStudents = studentIds;
+        jobs[jobIndex].status = 'SentToStudents';
+        saveLocalJobOffers(jobs);
+        jobObj = jobs[jobIndex];
+      }
+    }
+
+    if (!jobObj) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+    
+    // Notification for dashboard
+    const jobNotification = {
+      id: `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      sender: 'Super Admin',
+      text: `You have received a new job offer: ${jobObj.title}. Check your job offers section!`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+      createdAt: new Date()
+    };
+
+    let studentEmails = [];
+    if (isMongoConnected) {
+      const users = await User.find({ $or: [{ _id: { $in: studentIds } }, { email: { $in: studentIds } }] });
+      studentEmails = users.map(u => u.email);
+      
+      // Push notification to targeted students
+      await User.updateMany(
+        { _id: { $in: users.map(u => u._id) } },
+        { $push: { notifications: { $each: [jobNotification], $position: 0 } } }
+      );
+    } else {
+      const localUsers = getLocalUsers();
+      const targeted = localUsers.filter(u => studentIds.includes(String(u._id)) || studentIds.includes(String(u.id)) || studentIds.includes(u.email));
+      studentEmails = targeted.map(u => u.email);
+      
+      // Push notification to targeted students
+      let changed = false;
+      studentEmails.forEach(email => {
+        const uIdx = localUsers.findIndex(u => u.email === email);
+        if (uIdx !== -1) {
+          localUsers[uIdx].notifications = localUsers[uIdx].notifications || [];
+          localUsers[uIdx].notifications.unshift(jobNotification);
+          changed = true;
+        }
+      });
+      if (changed) {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+      }
+    }
+
+    // Attempt to send emails
+    if (emailUser && emailPass && emailPass !== 'your_gmail_app_password_here') {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: emailUser, pass: emailPass },
+      });
+
+      // Fetch Company Name for the beautiful template
+      let companyName = 'Our Partner Company';
+      if (isMongoConnected) {
+        try {
+          const cUser = await User.findById(jobObj.companyId);
+          if (cUser) companyName = cUser.companyName || cUser.fullName || companyName;
+        } catch(e) {}
+      } else {
+        const localUsers = getLocalUsers();
+        const cUser = localUsers.find(u => String(u._id) === String(jobObj.companyId) || String(u.id) === String(jobObj.companyId));
+        if (cUser) companyName = cUser.companyName || cUser.fullName || companyName;
+      }
+
+      for (const studentEmail of studentEmails) {
+        try {
+          await transporter.sendMail({
+            from: `"MBK Tech Careers" <${emailUser}>`,
+            to: studentEmail,
+            subject: `Job Offer: ${jobObj.title} at ${companyName}`,
+            html: `
+              <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea;">
+                <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 30px; text-align: center;">
+                  <img src="cid:mbk_logo" alt="MBK Technology Logo" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%; margin-bottom: 15px; border: 3px solid rgba(255,255,255,0.3); box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
+                  <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">Job Offer Notification</h1>
+                  <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 15px;">A new opportunity awaits you!</p>
+                </div>
+                
+                <div style="padding: 30px;">
+                  <p style="color: #334155; font-size: 16px; margin-top: 0;">Hello,</p>
+                  <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                    We are excited to inform you that <strong>${companyName}</strong> is looking to hire a <strong>${jobObj.title}</strong> and your profile matches their requirements!
+                  </p>
+
+                  <div style="background: #f8fafc; border-left: 4px solid #6366f1; padding: 20px; border-radius: 0 8px 8px 0; margin: 25px 0;">
+                    <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 18px;">${jobObj.title}</h3>
+                    <p style="margin: 0 0 15px 0; color: #64748b; font-size: 15px;">${jobObj.description || 'Exciting role at a fast-growing company.'}</p>
+                    
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                      <p style="margin: 0 0 8px 0; font-size: 14px; color: #475569;"><strong>🎓 Degree:</strong> ${jobObj.requirements?.degree || 'Any'}</p>
+                      <p style="margin: 0 0 8px 0; font-size: 14px; color: #475569;"><strong>⏱️ Experience:</strong> ${jobObj.requirements?.experience || 'Any'}</p>
+                      <p style="margin: 0; font-size: 14px; color: #475569;"><strong>💻 Skills:</strong> ${jobObj.requirements?.skills?.join(', ') || 'Not specified'}</p>
+                    </div>
+                  </div>
+
+                  <p style="color: #475569; font-size: 15px; line-height: 1.6;">
+                    Don't miss out on this opportunity! Log in to your MBK LMS dashboard to review the details and proceed with the next steps.
+                  </p>
+
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="http://localhost:5173/login" style="background: #4F46E5; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 16px; display: inline-block;">View on Dashboard</a>
+                  </div>
+
+                  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                  
+                  <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    Best regards,<br/>
+                    <strong style="color: #64748b;">MBK Tech Placement Team</strong>
+                  </p>
+                </div>
+              </div>
+            `,
+            attachments: [
+              {
+                filename: 'mbk_logo.png',
+                path: path.join(__dirname, 'assets', 'mbk_logo.png'),
+                cid: 'mbk_logo'
+              }
+            ]
+          });
+          console.log(`Job offer email sent to ${studentEmail}`);
+        } catch (mailErr) {
+          console.error(`Failed to send email to ${studentEmail}:`, mailErr);
+        }
+      }
+    } else {
+      console.log('Email credentials not configured, skipped sending email. Notifications updated in dashboard.');
+    }
+
+    res.json({ success: true, job: jobObj });
+  } catch (err) {
+    console.error('Error sending job:', err);
+    res.status(500).json({ success: false, message: 'Error sending job' });
+  }
+});
+
+// PUT /api/jobs/:id/select
+app.put('/api/jobs/:id/select', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentId } = req.body;
+    if (isMongoConnected) {
+      const job = await JobOffer.findById(id);
+      if (job) {
+        if (!job.selectedStudents) job.selectedStudents = [];
+        if (!job.selectedStudents.includes(studentId)) {
+          job.selectedStudents.push(studentId);
+        }
+        await job.save();
+        res.json({ success: true, job });
+      } else {
+        res.status(404).json({ success: false, message: 'Job not found' });
+      }
+    } else {
+      const jobs = getLocalJobOffers();
+      const jobIndex = jobs.findIndex(j => j._id === id);
+      if (jobIndex !== -1) {
+        if (!jobs[jobIndex].selectedStudents) jobs[jobIndex].selectedStudents = [];
+        if (!jobs[jobIndex].selectedStudents.includes(studentId)) {
+          jobs[jobIndex].selectedStudents.push(studentId);
+        }
+        saveLocalJobOffers(jobs);
+        res.json({ success: true, job: jobs[jobIndex] });
+      } else {
+        res.status(404).json({ success: false, message: 'Job not found' });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error selecting student' });
+  }
+});
+
+// GET /api/requests
+app.get('/api/requests', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const requests = await AccessRequest.find({}).sort({ createdAt: -1 });
+      res.json({ success: true, requests });
+    } else {
+      const requests = getLocalRequests();
+      res.json({ success: true, requests: requests.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching requests' });
+  }
+});
+
+// POST /api/requests
+app.post('/api/requests', async (req, res) => {
+  try {
+    const { requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole, requestType } = req.body;
+    if (isMongoConnected) {
+      const newRequest = new AccessRequest({ requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole, requestType });
+      await newRequest.save();
+      res.json({ success: true, request: newRequest });
+    } else {
+      const newRequest = {
+        id: Date.now().toString(),
+        requesterEmail, targetEmail, requesterName, targetName, requesterRole, targetRole, requestType,
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      };
+      saveLocalRequest(newRequest);
+      res.json({ success: true, request: newRequest });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating request' });
+  }
+});
+
+// DELETE /api/requests/:id
+app.delete('/api/requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      await AccessRequest.findByIdAndDelete(id);
+      res.json({ success: true, message: 'Request removed successfully.' });
+    } else {
+      let requests = getLocalRequests();
+      requests = requests.filter(r => r.id !== id && r._id !== id);
+      fs.writeFileSync(REQUESTS_FILE, JSON.stringify(requests, null, 2));
+      res.json({ success: true, message: 'Request removed successfully.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error deleting request' });
+  }
+});
+
+const server = httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 

@@ -1,7 +1,7 @@
 {
   "name": "chemy-lms-root",
   "version": "1.0.0",
-  "description": "Root workspace for Chemy LMS",
+  "description": "Root workspace for MBK LMS",
   "private": true,
   "scripts": {
     "backend": "npm run dev --prefix backend",

@@ -78,7 +78,7 @@ export default function OTPVerification() {
         body: JSON.stringify({ email, otp: code }),
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         setError(data.message || 'Verification failed. Please try again.');
       } else {
         setSuccess('Code verified! Redirecting to reset password…');
@@ -103,7 +103,7 @@ export default function OTPVerification() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         setError(data.message || 'Failed to resend code.');
       } else {
         setOtp(Array(OTP_LENGTH).fill(''));

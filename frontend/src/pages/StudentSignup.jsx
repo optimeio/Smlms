@@ -151,7 +151,7 @@ export default function StudentSignup() {
           <div className="auth-card" style={{ maxWidth: '540px' }}>
             <div className="auth-header">
               <h1 className="auth-title">Registration Complete</h1>
-              <p className="auth-header-copy">Welcome to Chemy LMS, {formData.fullName.split(' ')[0]}. Your student account is ready.</p>
+              <p className="auth-header-copy">Welcome to MBK LMS, {formData.fullName.split(' ')[0]}. Your student account is ready.</p>
             </div>
             <button
               type="button"
@@ -344,7 +344,7 @@ export default function StudentSignup() {
                         style={{ width: '18px', height: '18px', accentColor: '#1E3A8A', marginTop: '4px' }}
                       />
                       <label style={{ fontSize: '14px', color: '#475569', lineHeight: 1.6 }}>
-                        I agree to the Terms of Service & Privacy Policy of Chemy LMS.
+                        I agree to the Terms of Service & Privacy Policy of MBK LMS.
                       </label>
                     </div>
                     {errors.agreeTerms && <span className="error-message">{errors.agreeTerms}</span>}
@@ -367,10 +367,10 @@ export default function StudentSignup() {
               <div>
                 <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#0F172A', marginBottom: '16px' }}>Smart Student Journey</h2>
                 <p style={{ color: '#475569', lineHeight: 1.8, fontSize: '15px', marginBottom: '24px' }}>
-                  Join Chemy LMS and access curated learning tracks, live projects, and expert support for your engineering journey.
+                  Join MBK LMS and access curated learning tracks, live projects, and expert support for your engineering journey.
                 </p>
                 <div style={{ background: '#FFFFFF', border: '1px solid rgba(59, 130, 246, 0.16)', borderRadius: '22px', padding: '20px' }}>
-                  <p style={{ color: '#2563EB', fontWeight: 700, marginBottom: '8px' }}>Why Chemy LMS?</p>
+                  <p style={{ color: '#2563EB', fontWeight: 700, marginBottom: '8px' }}>Why MBK LMS?</p>
                   <ul style={{ paddingLeft: '18px', color: '#475569', lineHeight: 1.9, fontSize: '14px' }}>
                     <li>Industry-aligned programs</li>
                     <li>Expert coaching and support</li>

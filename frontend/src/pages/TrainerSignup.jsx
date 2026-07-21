@@ -180,7 +180,7 @@ export default function TrainerSignup() {
 
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '8px' }}>
                       <input type="checkbox" name="agreeTerms" checked={formData.agreeTerms} onChange={handleChange} style={{ width: '18px', height: '18px', accentColor: '#1E3A8A', marginTop: '4px' }} />
-                      <label style={{ fontSize: '14px', color: '#475569', lineHeight: 1.6 }}>I agree to the Terms of Service & Privacy Policy of Chemy LMS.</label>
+                      <label style={{ fontSize: '14px', color: '#475569', lineHeight: 1.6 }}>I agree to the Terms of Service & Privacy Policy of MBK LMS.</label>
                     </div>
                     {errors.agreeTerms && <span className="error-message">{errors.agreeTerms}</span>}
 

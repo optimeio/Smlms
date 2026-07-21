@@ -1,10 +1,18 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/AdminPortal.css';
 import '../styles/Dashboard.css';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../utils/cropImage';
 
 const API = '/api/admin';
-
+import AdminLiveClasses from './dashboards/AdminLiveClasses';
+import AdminCompanyCourses from './dashboards/AdminCompanyCourses';
+import AdminJobOffers from './dashboards/AdminJobOffers';
+import { 
+  AdminPage, AdminPageHeader, EnterpriseCard, AdminButton, AdminBadge, 
+  AdminTableContainer, AdminTh, AdminTd, A 
+} from '../components/AdminDesignSystem';
 /* ---- CSV helper ---- */
 function downloadCSV(rows, filename) {
   if (!rows.length) return;
@@ -117,6 +125,9 @@ const Icons = {
   ),
   SupportTickets: (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.9 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+  ),
+  LiveClasses: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2" ry="2"/></svg>
   )
 };
 
@@ -126,8 +137,14 @@ const MENU_ITEMS = [
   { name: 'Trainers', icon: Icons.Trainers },
   { name: 'Companies', icon: Icons.Companies },
   { name: 'Courses', icon: Icons.Courses },
+  { name: 'Company Courses', icon: Icons.Courses },
+  { name: 'Live Classes', icon: Icons.LiveClasses },
+  { name: 'Job Offers', icon: Icons.Jobs },
+  { name: 'Trainer Requests', icon: Icons.SupportTickets },
+  { name: 'Student Requests', icon: Icons.SupportTickets },
   { name: 'Contact Requests', icon: Icons.ContactRequests },
   { name: 'Reports', icon: Icons.Reports },
+  { name: 'Activity Logs', icon: Icons.Reports },
   { name: 'Settings', icon: Icons.Settings }
 ];
 
@@ -144,14 +161,23 @@ export default function AdminPortal() {
 
   // Contact requests state
   const [contactRequests, setContactRequests] = useState([]);
+  
+  // System Requests State (Trainer/Student requests from companies)
+  const [systemRequests, setSystemRequests] = useState([]);
+  
+  // Activity logs state
+  const [activityLogs, setActivityLogs] = useState([]);
 
   // Courses state
   const [courses, setCourses] = useState([]);
   const [showCourseModal, setShowCourseModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedScheduleCourse, setSelectedScheduleCourse] = useState(null);
   const [courseForm, setCourseForm] = useState({
     id: null,
     title: '',
     name: '',
+    originalPrice: '',
     price: '',
     description: '',
     image: '',
@@ -160,8 +186,34 @@ export default function AdminPortal() {
     pptFile: '',
     video: '',
     videoFile: '',
-    programType: 'Student Development Program'
+    programType: 'Student Development Program',
+    totalDurationHours: '',
+    trainingDays: '',
+    startDate: '',
+    dailyStartTime: ''
   });
+  const [showCourseAssignModal, setShowCourseAssignModal] = useState(false);
+  const [courseToAssign, setCourseToAssign] = useState(null);
+  const [assigneeEmail, setAssigneeEmail] = useState('');
+  const [assigningCourse, setAssigningCourse] = useState(false);
+
+  const [showTrainerAssignModal, setShowTrainerAssignModal] = useState(false);
+  const [selectedCompanyEmail, setSelectedCompanyEmail] = useState('');
+  const [selectedTrainerEmail, setSelectedTrainerEmail] = useState('');
+
+  // Company Assignment State
+  const [showCompanyAssignModal, setShowCompanyAssignModal] = useState(false);
+  const [companyToAssign, setCompanyToAssign] = useState(null);
+  const [assignSelections, setAssignSelections] = useState({ courses: [], trainers: [], students: [] });
+  const [assigningCompany, setAssigningCompany] = useState(false);
+
+  // Image Cropping State
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [imageFileName, setImageFileName] = useState('');
 
   // Detailed Course Content View & Assign Box states
   const [selectedCourseForContent, setSelectedCourseForContent] = useState(null);
@@ -244,115 +296,129 @@ export default function AdminPortal() {
     );
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-            {roleName.charAt(0).toUpperCase() + roleName.slice(1)}s Directory
-          </h2>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' }}>
-            View and manage {roleName} registrations, details, and verification status.
-          </p>
-        </div>
+      <AdminPage>
+        <AdminPageHeader 
+          title={`${roleName.charAt(0).toUpperCase() + roleName.slice(1)}s Directory`}
+          subtitle={`View and manage ${roleName} registrations, details, and verification status.`}
+          emoji="👥"
+        />
 
-        <div className="admin-card">
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table">
-              <thead>
+        <EnterpriseCard>
+          <AdminTableContainer>
+            <thead>
+              <tr>
+                <AdminTh>Details</AdminTh>
+                <AdminTh>Location & Contact</AdminTh>
+                {roleName === 'student' && <AdminTh>College & Dept</AdminTh>}
+                {roleName === 'trainer' && <AdminTh>Expertise</AdminTh>}
+                {roleName === 'company' && <AdminTh>Industry & Website</AdminTh>}
+                <AdminTh>Status</AdminTh>
+                <AdminTh>Action</AdminTh>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
                 <tr>
-                  <th>Details</th>
-                  <th>Location & Contact</th>
-                  {roleName === 'student' && <th>College & Dept</th>}
-                  {roleName === 'trainer' && <th>Expertise</th>}
-                  {roleName === 'company' && <th>Industry & Website</th>}
-                  <th>Status</th>
-                  <th>Action</th>
+                  <AdminTd colSpan={roleName === 'student' || roleName === 'trainer' || roleName === 'company' ? 5 : 4} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                    No {roleName} records found.
+                  </AdminTd>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan={roleName === 'student' || roleName === 'trainer' || roleName === 'company' ? 5 : 4} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
-                      No {roleName} records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredUsers.map((user) => {
-                    const isApproved = user.isApproved;
-                    const statusText = user.status || (isApproved ? 'Approved' : 'Pending');
-                    return (
-                      <tr key={user.email}>
-                        <td>
-                          <div className="table-user-cell">
-                            <div className="table-avatar">{user.fullName?.[0] || user.companyName?.[0] || 'U'}</div>
-                            <div className="table-user-info">
-                              <h5>{user.fullName || user.companyName}</h5>
-                              <p>{user.email}</p>
-                            </div>
+              ) : (
+                filteredUsers.map((user) => {
+                  const isApproved = user.isApproved;
+                  const statusText = user.status || (isApproved ? 'Approved' : 'Pending');
+                  return (
+                    <tr key={user.email}>
+                      <AdminTd>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#005F7A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                            {user.fullName?.[0] || user.companyName?.[0] || 'U'}
                           </div>
-                        </td>
-                        <td>
-                          <div>📞 {user.phone || user.hrPhone || 'N/A'}</div>
-                          <div style={{ color: '#64748b', fontSize: '12px' }}>📍 {user.location || user.district || 'N/A'}</div>
-                        </td>
-                        {roleName === 'student' && (
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{user.college || 'N/A'}</div>
-                            <div style={{ color: '#64748b', fontSize: '12px' }}>{user.department || 'N/A'}</div>
-                          </td>
-                        )}
-                        {roleName === 'trainer' && (
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{user.expertise || 'N/A'}</div>
-                            <div style={{ color: '#64748b', fontSize: '12px' }}>{user.experienceYears ? `${user.experienceYears} Yrs Exp` : 'N/A'}</div>
-                          </td>
-                        )}
-                        {roleName === 'company' && (
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{user.industry || 'N/A'}</div>
-                            <div style={{ color: '#FF6B00', fontSize: '12px' }}>
-                              <a href={user.website} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>{user.website || 'N/A'}</a>
-                            </div>
-                          </td>
-                        )}
-                        <td>
-                          <span className={`status-badge ${statusText === 'Approved' ? 'success' : statusText === 'Pending' ? 'warn' : 'error'}`}>
-                            {statusText}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              onClick={() => setViewingResume(user)}
-                              className="quick-action-btn"
-                              style={{ padding: '6px 12px', background: '#F1F1F1', color: '#0F172A', border: '1px solid #EFEFEF' }}
-                            >
-                              👁 View
-                            </button>
-                            <button
-                              onClick={() => handleUpdateUserApproval(user.email, 'Approved')}
-                              className="quick-action-btn"
-                              style={{ padding: '6px 12px', background: '#F0FDF4', color: '#22C55E', border: '1px solid #DCFCE7' }}
-                            >
-                              ✔ Approve
-                            </button>
-                            <button
-                              onClick={() => handleUpdateUserApproval(user.email, 'Rejected')}
-                              className="quick-action-btn"
-                              style={{ padding: '6px 12px', background: '#FEF2F2', color: '#EF4444', border: '1px solid #FEE2E2' }}
-                            >
-                              ✖ Reject
-                            </button>
+                          <div>
+                            <h5 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>{user.fullName || user.companyName}</h5>
+                            <p style={{ margin: 0, fontSize: '12.5px', color: '#64748B' }}>{user.email}</p>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+                        </div>
+                      </AdminTd>
+                      <AdminTd>
+                        <div style={{ fontWeight: 500, color: '#334155' }}>📞 {user.phone || user.hrPhone || 'N/A'}</div>
+                        <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>📍 {user.location || user.district || 'N/A'}</div>
+                      </AdminTd>
+                      {roleName === 'student' && (
+                        <AdminTd>
+                          <div style={{ fontWeight: 600, color: '#334155' }}>{user.college || 'N/A'}</div>
+                          <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{user.department || 'N/A'}</div>
+                        </AdminTd>
+                      )}
+                      {roleName === 'trainer' && (
+                        <AdminTd>
+                          <div style={{ fontWeight: 600, color: '#334155' }}>{user.expertise || 'N/A'}</div>
+                          <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{user.experienceYears ? `${user.experienceYears} Yrs Exp` : 'N/A'}</div>
+                        </AdminTd>
+                      )}
+                      {roleName === 'company' && (
+                        <AdminTd>
+                          <div style={{ fontWeight: 600, color: '#334155' }}>{user.industry || 'N/A'}</div>
+                          <div style={{ color: '#3B82F6', fontSize: '12px', marginTop: '4px' }}>
+                            <a href={user.website} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>{user.website || 'N/A'}</a>
+                          </div>
+                        </AdminTd>
+                      )}
+                      <AdminTd>
+                        <AdminBadge variant={statusText === 'Approved' ? 'success' : statusText === 'Pending' ? 'warning' : 'danger'}>
+                          {statusText}
+                        </AdminBadge>
+                      </AdminTd>
+                      <AdminTd>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <AdminButton
+                            variant="outline"
+                            onClick={() => setViewingResume(user)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            👁 View
+                          </AdminButton>
+                          {roleName === 'company' && (
+                            <AdminButton
+                              variant="blue"
+                              onClick={() => {
+                                setCompanyToAssign(user);
+                                setAssignSelections({
+                                  courses: user.assignedCourses || [],
+                                  trainers: user.assignedTrainers || [],
+                                  students: user.assignedStudents || []
+                                });
+                                setShowCompanyAssignModal(true);
+                              }}
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              ⚙ Assign
+                            </AdminButton>
+                          )}
+                          <AdminButton
+                            variant="success"
+                            onClick={() => handleUpdateUserApproval(user.email, 'Approved')}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            ✔ Approve
+                          </AdminButton>
+                          <AdminButton
+                            variant="danger"
+                            onClick={() => handleUpdateUserApproval(user.email, 'Rejected')}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            ✖ Reject
+                          </AdminButton>
+                        </div>
+                      </AdminTd>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </AdminTableContainer>
+        </EnterpriseCard>
+      </AdminPage>
     );
   };
 
@@ -417,6 +483,30 @@ export default function AdminPortal() {
       }));
   }, [registeredUsers]);
 
+  const fetchActivityLogs = async () => {
+    try {
+      const res = await fetch('/api/activities');
+      const data = await res.json();
+      if (data.success) {
+        setActivityLogs(data.activities || []);
+      }
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    }
+  };
+
+  const fetchSystemRequests = async () => {
+    try {
+      const res = await fetch('/api/requests');
+      const data = await res.json();
+      if (data.success) {
+        setSystemRequests(data.requests || []);
+      }
+    } catch (err) {
+      console.error('Error fetching system requests:', err);
+    }
+  };
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user || (user.email !== 'admin@smgroups.com' && user.email !== 'thesmgroups@gmail.com')) {
@@ -425,8 +515,123 @@ export default function AdminPortal() {
       fetchContactRequests();
       fetchCourses();
       fetchRegisteredUsers();
+      fetchSystemRequests();
+      if (activeTab === 'Activity Logs') {
+        fetchActivityLogs();
+      }
     }
   }, [navigate, activeTab]);
+
+  const handleSaveCompanyAssignments = async () => {
+    if (!companyToAssign) return;
+    setAssigningCompany(true);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(companyToAssign.email)}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courses: assignSelections.courses,
+          trainers: assignSelections.trainers,
+          students: assignSelections.students
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Assignments updated successfully!');
+        setShowCompanyAssignModal(false);
+        fetchRegisteredUsers(); // refresh data
+      } else {
+        showToast(data.message || 'Failed to update assignments.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error updating assignments.', 'error');
+    } finally {
+      setAssigningCompany(false);
+    }
+  };
+
+  const renderCompanyAssignModal = () => {
+    if (!companyToAssign) return null;
+    
+    // Get all available options
+    const availableCourses = courses;
+    const availableTrainers = registeredUsers.filter(u => u.role === 'trainer' && u.isApproved);
+    const availableStudents = registeredUsers.filter(u => u.role === 'student' && u.isApproved);
+
+    const toggleSelection = (category, itemValue) => {
+      setAssignSelections(prev => {
+        const current = prev[category] || [];
+        if (current.includes(itemValue)) {
+          return { ...prev, [category]: current.filter(val => val !== itemValue) };
+        } else {
+          return { ...prev, [category]: [...current, itemValue] };
+        }
+      });
+    };
+
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Assign to {companyToAssign.companyName || companyToAssign.fullName}</h3>
+            <button onClick={() => setShowCompanyAssignModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b' }}>×</button>
+          </div>
+          
+          <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Courses Selection */}
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#005F7A' }}>Assign Courses</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                {availableCourses.map(c => (
+                  <label key={c.title} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: assignSelections.courses.includes(c.title) ? '#f0fdf4' : '#fff' }}>
+                    <input type="checkbox" checked={assignSelections.courses.includes(c.title)} onChange={() => toggleSelection('courses', c.title)} />
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{c.title}</span>
+                  </label>
+                ))}
+                {availableCourses.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>No courses available</span>}
+              </div>
+            </div>
+
+            {/* Trainers Selection */}
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#005F7A' }}>Assign Trainers</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                {availableTrainers.map(t => (
+                  <label key={t.email} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: assignSelections.trainers.includes(t.email) ? '#f0fdf4' : '#fff' }}>
+                    <input type="checkbox" checked={assignSelections.trainers.includes(t.email)} onChange={() => toggleSelection('trainers', t.email)} />
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{t.fullName}</span>
+                  </label>
+                ))}
+                {availableTrainers.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>No approved trainers available</span>}
+              </div>
+            </div>
+
+            {/* Students Selection */}
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#005F7A' }}>Assign Students</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                {availableStudents.map(s => (
+                  <label key={s.email} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', backgroundColor: assignSelections.students.includes(s.email) ? '#f0fdf4' : '#fff' }}>
+                    <input type="checkbox" checked={assignSelections.students.includes(s.email)} onChange={() => toggleSelection('students', s.email)} />
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{s.fullName}</span>
+                  </label>
+                ))}
+                {availableStudents.length === 0 && <span style={{ fontSize: '13px', color: '#64748b' }}>No approved students available</span>}
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ padding: '20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button onClick={() => setShowCompanyAssignModal(false)} style={{ padding: '10px 20px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleSaveCompanyAssignments} disabled={assigningCompany} style={{ padding: '10px 20px', backgroundColor: '#005F7A', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
+              {assigningCompany ? 'Saving...' : 'Save Assignments'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -452,83 +657,532 @@ export default function AdminPortal() {
     navigate('/login');
   };
 
+  const handleAssignTrainerToCompany = async () => {
+    if (!selectedCompanyEmail || !selectedTrainerEmail) {
+      showToast('Please select a company and a trainer.', 'error');
+      return;
+    }
+    try {
+      const companyUser = registeredUsers.find(u => u.email === selectedCompanyEmail);
+      if (!companyUser) return showToast('Company not found.', 'error');
+      
+      const currentTrainers = companyUser.assignedTrainers || [];
+      if (currentTrainers.includes(selectedTrainerEmail)) {
+         showToast('Trainer is already assigned to this company.', 'error');
+         return;
+      }
+      const newTrainers = [...currentTrainers, selectedTrainerEmail];
+      
+      const res = await fetch(`/api/admin/users/${selectedCompanyEmail}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainers: newTrainers })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Trainer assigned to company successfully!');
+        setShowTrainerAssignModal(false);
+        fetchUsers();
+      } else {
+        showToast(data.message || 'Failed to assign trainer.', 'error');
+      }
+    } catch (err) {
+      showToast('Server error.', 'error');
+    }
+  };
+
+  const handleRemoveActivity = async (logId) => {
+    try {
+      const res = await fetch(`/api/activities/${logId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setActivityLogs(prev => prev.filter(a => (a._id || a.id) !== logId));
+        showToast('Activity log removed.');
+      } else {
+        showToast(data.message || 'Failed to remove activity.', 'error');
+      }
+    } catch (err) {
+      showToast('Network error removing activity.', 'error');
+    }
+  };
+
+  const handleRemoveRequest = async (reqId) => {
+    try {
+      const res = await fetch(`/api/requests/${reqId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setSystemRequests(prev => prev.filter(r => (r._id || r.id) !== reqId));
+        showToast('Request removed.');
+      } else {
+        showToast(data.message || 'Failed to remove request.', 'error');
+      }
+    } catch (err) {
+      showToast('Network error removing request.', 'error');
+    }
+  };
+
+  const renderActivityLogsTab = () => (
+    <AdminPage>
+      <AdminPageHeader 
+        title="Activity Logs" 
+        subtitle="Monitor actions performed by Companies and other users."
+        emoji="📜"
+      />
+      <EnterpriseCard>
+        <AdminTableContainer>
+          <thead>
+            <tr>
+              <AdminTh>Timestamp</AdminTh>
+              <AdminTh>Actor</AdminTh>
+              <AdminTh>Action</AdminTh>
+              <AdminTh>Details</AdminTh>
+              <AdminTh>Remove</AdminTh>
+            </tr>
+          </thead>
+          <tbody>
+            {activityLogs.length === 0 ? (
+              <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>No activities logged yet.</td></tr>
+            ) : (
+              activityLogs.map((log) => (
+                <tr key={log._id || log.id}>
+                  <AdminTd style={{ color: '#64748b', fontSize: '13px' }}>{new Date(log.timestamp).toLocaleString()}</AdminTd>
+                  <AdminTd style={{ fontWeight: 600 }}>{log.actor}</AdminTd>
+                  <AdminTd><AdminBadge variant="success">{log.action}</AdminBadge></AdminTd>
+                  <AdminTd style={{ color: '#475569', fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                    {log.details || '-'}
+                    {log.action === 'Trainer Request' && (
+                      <AdminButton 
+                        variant="blue"
+                        onClick={() => {
+                           const comp = registeredUsers.find(u => (u.companyName === log.actor || u.fullName === log.actor || u.email === log.actor) && (u.role?.toLowerCase() === 'company'));
+                           setSelectedCompanyEmail(comp ? comp.email : '');
+                           setSelectedTrainerEmail('');
+                           setShowTrainerAssignModal(true);
+                        }}
+                        style={{ marginLeft: 12 }}
+                      >
+                        Assign Trainer
+                      </AdminButton>
+                    )}
+                  </AdminTd>
+                  <AdminTd>
+                    <AdminButton
+                      variant="danger"
+                      onClick={() => handleRemoveActivity(log._id || log.id)}
+                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                    >
+                      Remove
+                    </AdminButton>
+                  </AdminTd>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </AdminTableContainer>
+      </EnterpriseCard>
+    </AdminPage>
+  );
+
+  const renderRequestsTab = (tabName) => {
+    const requestType = tabName === 'Trainer Requests' ? 'Trainer' : 'Student';
+    const filteredRequests = systemRequests.filter(req => req.requestType === requestType);
+
+    return (
+      <AdminPage>
+        <AdminPageHeader 
+          title={tabName} 
+          subtitle={`Manage ${requestType.toLowerCase()} requests from companies.`}
+          emoji="📝"
+        />
+        <EnterpriseCard>
+          <AdminTableContainer>
+            <thead>
+              <tr>
+                <AdminTh>Date</AdminTh>
+                <AdminTh>Company</AdminTh>
+                <AdminTh>Details</AdminTh>
+                <AdminTh>Action</AdminTh>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRequests.length === 0 ? (
+                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>No {requestType.toLowerCase()} requests found.</td></tr>
+              ) : (
+                filteredRequests.map((req, idx) => (
+                  <tr key={req._id || req.id || idx}>
+                    <AdminTd style={{ color: '#64748b', fontSize: '13px' }}>{new Date(req.createdAt).toLocaleDateString()}</AdminTd>
+                    <AdminTd style={{ fontWeight: 600 }}>{req.requesterName}</AdminTd>
+                    <AdminTd style={{ color: '#475569', fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                      {req.details ? (
+                        <>
+                          <div><strong>Course:</strong> {req.details.course}</div>
+                          {requestType === 'Trainer' ? (
+                            <div><strong>Reason:</strong> {req.details.reason}</div>
+                          ) : (
+                            <div><strong>Number of Students:</strong> {req.details.count}</div>
+                          )}
+                          <div><strong>Date:</strong> {req.details.date}</div>
+                          <div><strong>Session/Duration:</strong> {req.details.duration}</div>
+                        </>
+                      ) : (
+                         <span>Legacy Request (Check Activity Logs)</span>
+                      )}
+                    </AdminTd>
+                    <AdminTd>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {requestType === 'Trainer' && (
+                          <AdminButton 
+                            variant="blue"
+                            onClick={() => {
+                               const comp = registeredUsers.find(u => (u.companyName === req.requesterName || u.fullName === req.requesterName || u.email === req.requesterEmail) && (u.role?.toLowerCase() === 'company'));
+                               setSelectedCompanyEmail(comp ? comp.email : '');
+                               setSelectedTrainerEmail('');
+                               setShowTrainerAssignModal(true);
+                            }}
+                          >
+                            Assign Trainer
+                          </AdminButton>
+                        )}
+                        <AdminButton
+                          variant="danger"
+                          onClick={() => handleRemoveRequest(req._id || req.id)}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
+                        >
+                          Remove
+                        </AdminButton>
+                      </div>
+                    </AdminTd>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </AdminTableContainer>
+        </EnterpriseCard>
+      </AdminPage>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
+      case 'Company Courses':
+        return <AdminCompanyCourses />;
+      case 'Job Offers':
+        return <AdminJobOffers adminUser={JSON.parse(localStorage.getItem('adminUser')) || {}} />;
+      case 'Activity Logs':
+        return renderActivityLogsTab();
       case 'Dashboard':
-        return (
-          <div className="admin-dashboard-container">
-            {/* Top KPI Section */}
-            <div className="kpi-cards-container">
-              <div className="kpi-card-box">
-                <div className="kpi-icon-box cyan">{Icons.Students}</div>
-                <div className="kpi-details">
-                  <h3>{registeredUsers.filter(u => u.role === 'student').length}</h3>
-                  <p>Total Students</p>
+        return (() => {
+          // ─── Derived Data ───
+          const totalStudents = registeredUsers.filter(u => u.role === 'student').length;
+          const totalTrainers = registeredUsers.filter(u => u.role === 'trainer').length;
+          const totalCompanies = registeredUsers.filter(u => u.role === 'company').length;
+          const pendingApprovals = registeredUsers.filter(u => u.status === 'Pending' || u.isApproved === false).length;
+          const activeCourses = courses.length;
+          const totalUsers = registeredUsers.length;
+          const approvedUsers = registeredUsers.filter(u => u.isApproved).length;
+          const verificationRate = totalUsers > 0 ? Math.round((approvedUsers / totalUsers) * 100) : 0;
+          const courseCompletionRate = 78; // Placeholder
+
+          // ─── Sparkline generator ───
+          const generateSparkline = (seed, points = 8) => {
+            const vals = [];
+            let v = 30 + (seed * 17) % 20;
+            for (let i = 0; i < points; i++) {
+              v = Math.max(5, Math.min(45, v + ((seed * (i + 1) * 7) % 21) - 10));
+              vals.push(v);
+            }
+            const step = 100 / (points - 1);
+            const pathPoints = vals.map((val, i) => `${i * step},${50 - val}`);
+            return `M${pathPoints.join(' L')}`;
+          };
+
+          // ─── Area chart data (registrations over time) ───
+          const chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+          const chartData = [12, 19, 14, 25, 22, 31, totalStudents > 0 ? totalStudents : 28];
+          const chartMax = Math.max(...chartData) + 5;
+          const chartW = 500;
+          const chartH = 180;
+          const chartPadX = 40;
+          const chartPadY = 20;
+          const innerW = chartW - chartPadX * 2;
+          const innerH = chartH - chartPadY * 2;
+          const chartPoints = chartData.map((d, i) => ({
+            x: chartPadX + (i / (chartData.length - 1)) * innerW,
+            y: chartPadY + innerH - (d / chartMax) * innerH
+          }));
+          const linePath = chartPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+          const areaPath = `${linePath} L${chartPoints[chartPoints.length - 1].x},${chartH - chartPadY} L${chartPoints[0].x},${chartH - chartPadY} Z`;
+
+          // ─── Progress Ring Component ───
+          const ProgressRing = ({ percent, color, size = 80, strokeWidth = 7, label }) => {
+            const r = (size - strokeWidth) / 2;
+            const circ = 2 * Math.PI * r;
+            const offset = circ - (percent / 100) * circ;
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <svg width={size} height={size} className="admin-progress-ring">
+                  <circle className="admin-progress-ring-bg" cx={size / 2} cy={size / 2} r={r} />
+                  <circle
+                    className="admin-progress-ring-fill"
+                    cx={size / 2} cy={size / 2} r={r}
+                    stroke={color}
+                    strokeDasharray={circ}
+                    strokeDashoffset={offset}
+                  />
+                  <text
+                    x="50%" y="50%" dominantBaseline="central" textAnchor="middle"
+                    style={{ fontSize: '16px', fontWeight: 800, fill: '#0F172A', transform: 'rotate(90deg)', transformOrigin: 'center' }}
+                  >
+                    {percent}%
+                  </text>
+                </svg>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'center' }}>{label}</span>
+              </div>
+            );
+          };
+
+          // ─── KPI Card Config ───
+          const kpiCards = [
+            { label: 'Total Students', value: totalStudents, icon: '👨‍🎓', gradient: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', glow: 'rgba(59,130,246,0.25)', trend: '+12%', trendUp: true, seed: 1 },
+            { label: 'Total Trainers', value: totalTrainers, icon: '👨‍🏫', gradient: 'linear-gradient(135deg, #06B6D4, #0891B2)', glow: 'rgba(6,182,212,0.25)', trend: '+8%', trendUp: true, seed: 2 },
+            { label: 'Companies', value: totalCompanies, icon: '🏢', gradient: 'linear-gradient(135deg, #8B5CF6, #7C3AED)', glow: 'rgba(139,92,246,0.25)', trend: '+5%', trendUp: true, seed: 3 },
+            { label: 'Pending Approvals', value: pendingApprovals, icon: '⏳', gradient: 'linear-gradient(135deg, #F97316, #EA580C)', glow: 'rgba(249,115,22,0.25)', trend: pendingApprovals > 0 ? `${pendingApprovals} new` : '0', trendUp: false, seed: 4 },
+            { label: 'Active Courses', value: activeCourses, icon: '📚', gradient: 'linear-gradient(135deg, #10B981, #059669)', glow: 'rgba(16,185,129,0.25)', trend: '+3', trendUp: true, seed: 5 },
+          ];
+
+          // ─── Activity colors ───
+          const getActivityStyle = (text) => {
+            if (text.includes('student')) return { bg: '#EFF6FF', color: '#3B82F6', dot: '👨‍🎓' };
+            if (text.includes('trainer')) return { bg: '#ECFEFF', color: '#06B6D4', dot: '👨‍🏫' };
+            if (text.includes('company')) return { bg: '#F3E8FF', color: '#8B5CF6', dot: '🏢' };
+            return { bg: '#F0FDF4', color: '#10B981', dot: '✓' };
+          };
+
+          return (
+            <AdminPage>
+              <AdminPageHeader
+                title="Command Center"
+                subtitle="Real-time overview of your platform's performance and activity."
+                emoji="🚀"
+              />
+
+              {/* ═══════════ KPI CARDS GRID ═══════════ */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                {kpiCards.map((card, i) => (
+                  <div
+                    key={i}
+                    className={`admin-kpi-card admin-stagger-${i + 1}`}
+                    style={{ '--kpi-gradient': card.gradient, '--kpi-glow': card.glow }}
+                  >
+                    {/* Top row: icon + trend */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                      <div className="admin-kpi-icon">{card.icon}</div>
+                      <span className={`admin-kpi-trend ${card.trendUp ? 'up' : 'down'}`}>
+                        {card.trendUp ? '↑' : '●'} {card.trend}
+                      </span>
+                    </div>
+                    {/* Value + Label */}
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div className="admin-kpi-value">{card.value}</div>
+                      <div className="admin-kpi-label">{card.label}</div>
+                    </div>
+                    {/* Sparkline */}
+                    <svg className="admin-sparkline" viewBox="0 0 100 50" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id={`spark-${i}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={card.glow.replace('0.25', '0.4')} />
+                          <stop offset="100%" stopColor={card.glow.replace('0.25', '0')} />
+                        </linearGradient>
+                      </defs>
+                      <path d={`${generateSparkline(card.seed)} L100,50 L0,50 Z`} fill={`url(#spark-${i})`} />
+                      <path d={generateSparkline(card.seed)} fill="none" stroke={card.glow.replace('0.25', '0.6')} strokeWidth="2" className="admin-chart-line" />
+                    </svg>
+                  </div>
+                ))}
+              </div>
+
+              {/* ═══════════ MIDDLE ROW: Chart + Timeline ═══════════ */}
+              <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', marginBottom: '28px' }}>
+
+                {/* ─── Registration Analytics Chart ─── */}
+                <div className="admin-section-card">
+                  <div className="admin-section-header">
+                    <div className="admin-section-title">
+                      <div className="admin-section-title-icon" style={{ background: '#EFF6FF', color: '#3B82F6' }}>📊</div>
+                      Registration Analytics
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {['7d', '30d', '90d'].map((range) => (
+                        <button key={range} style={{
+                          padding: '5px 14px', borderRadius: '8px', border: '1px solid #E2E8F0',
+                          background: range === '30d' ? '#0F172A' : '#F8FAFC',
+                          color: range === '30d' ? '#FFFFFF' : '#64748B',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}>{range}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <svg viewBox={`0 0 ${chartW} ${chartH}`} style={{ width: '100%', height: '220px' }}>
+                    <defs>
+                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(59,130,246,0.2)" />
+                        <stop offset="100%" stopColor="rgba(59,130,246,0)" />
+                      </linearGradient>
+                    </defs>
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                      const y = chartPadY + innerH * (1 - pct);
+                      return (
+                        <g key={i}>
+                          <line x1={chartPadX} y1={y} x2={chartW - chartPadX} y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 4" />
+                          <text x={chartPadX - 8} y={y + 4} textAnchor="end" style={{ fontSize: '10px', fill: '#94A3B8', fontWeight: 600 }}>
+                            {Math.round(chartMax * pct)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                    {/* X axis labels */}
+                    {chartLabels.map((label, i) => (
+                      <text key={i} x={chartPadX + (i / (chartLabels.length - 1)) * innerW} y={chartH - 4}
+                        textAnchor="middle" style={{ fontSize: '11px', fill: '#94A3B8', fontWeight: 600 }}>
+                        {label}
+                      </text>
+                    ))}
+                    {/* Area fill */}
+                    <path d={areaPath} fill="url(#areaGrad)" opacity="0.8" />
+                    {/* Line */}
+                    <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="admin-chart-line" />
+                    {/* Data dots */}
+                    {chartPoints.map((p, i) => (
+                      <g key={i}>
+                        <circle cx={p.x} cy={p.y} r="4" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2.5" />
+                        <title>{`${chartLabels[i]}: ${chartData[i]}`}</title>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+
+                {/* ─── Premium Activity Timeline ─── */}
+                <div className="admin-section-card">
+                  <div className="admin-section-header">
+                    <div className="admin-section-title">
+                      <div className="admin-section-title-icon" style={{ background: '#F0FDF4', color: '#10B981' }}>⚡</div>
+                      Recent Activity
+                    </div>
+                    <AdminButton variant="outline" onClick={() => setActiveTab('Activity Logs')} style={{ fontSize: '12px', padding: '6px 14px' }}>View All</AdminButton>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {activities && activities.length > 0 ? (
+                      activities.slice(0, 5).map((act, i) => {
+                        const style = getActivityStyle(act.text.toLowerCase());
+                        return (
+                          <div key={i} className="admin-timeline-item" style={{ animation: `admin-slideInLeft 0.4s ease-out ${i * 0.08}s both` }}>
+                            <div className="admin-timeline-dot" style={{ background: style.bg, color: style.color, fontSize: '15px' }}>
+                              {style.dot}
+                            </div>
+                            <div className="admin-timeline-content">
+                              <p className="admin-timeline-text">{act.text}</p>
+                              <p className="admin-timeline-time">{act.time}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p style={{ color: '#64748B', fontSize: '13px', textAlign: 'center', padding: '30px 0' }}>No recent activities found.</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="kpi-card-box">
-                <div className="kpi-icon-box blue">{Icons.Trainers}</div>
-                <div className="kpi-details">
-                  <h3>{registeredUsers.filter(u => u.role === 'trainer').length}</h3>
-                  <p>Total Trainers</p>
-                </div>
-              </div>
+              {/* ═══════════ BOTTOM ROW: Status + Actions + Courses ═══════════ */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
 
-              <div className="kpi-card-box">
-                <div className="kpi-icon-box gray">{Icons.Companies}</div>
-                <div className="kpi-details">
-                  <h3>{registeredUsers.filter(u => u.role === 'company').length}</h3>
-                  <p>Registered Companies</p>
+                {/* ─── Platform Status (Progress Rings) ─── */}
+                <div className="admin-section-card">
+                  <div className="admin-section-header">
+                    <div className="admin-section-title">
+                      <div className="admin-section-title-icon" style={{ background: '#FEF3C7', color: '#F59E0B' }}>📈</div>
+                      Platform Status
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '8px 0 12px' }}>
+                    <ProgressRing percent={verificationRate} color="#3B82F6" label="Verified Users" />
+                    <ProgressRing percent={courseCompletionRate} color="#10B981" label="Course Progress" />
+                    <ProgressRing percent={totalStudents > 0 ? Math.min(Math.round((totalStudents / (totalStudents + pendingApprovals || 1)) * 100), 100) : 0} color="#8B5CF6" label="Active Rate" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="kpi-card-box">
-                <div className="kpi-icon-box orange">{Icons.VerificationRequests}</div>
-                <div className="kpi-details">
-                  <h3>{registeredUsers.filter(u => u.status === 'Pending' || u.isApproved === false).length}</h3>
-                  <p>Pending Approvals</p>
-                </div>
-              </div>
-
-              <div className="kpi-card-box">
-                <div className="kpi-icon-box green">{Icons.Courses}</div>
-                <div className="kpi-details">
-                  <h3>{courses.length}</h3>
-                  <p>Active Courses</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Dashboard Panels */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div className="panel-card">
-                <div className="panel-header">
-                  <h3 className="panel-title">Recent Activity Logs</h3>
-                </div>
-                {activities && activities.length > 0 ? (
-                  <div className="activity-list">
-                    {activities.slice(0, 8).map((act, i) => (
-                      <div key={i} className="activity-item">
-                        <span className="activity-icon" style={{ color: act.success ? '#16A34A' : '#EF4444' }}>
-                          {act.success ? '✓' : '✗'}
-                        </span>
-                        <div className="activity-details">
-                          <p className="activity-text">{act.text}</p>
-                          <p className="activity-time">{act.time}</p>
+                {/* ─── Quick Actions Grid ─── */}
+                <div className="admin-section-card">
+                  <div className="admin-section-header">
+                    <div className="admin-section-title">
+                      <div className="admin-section-title-icon" style={{ background: '#EDE9FE', color: '#7C3AED' }}>⚡</div>
+                      Quick Actions
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {[
+                      { label: 'Add Course', icon: '➕', bg: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', tab: 'Courses' },
+                      { label: 'Students', icon: '👨‍🎓', bg: 'linear-gradient(135deg, #10B981, #059669)', tab: 'Students' },
+                      { label: 'Reports', icon: '📊', bg: 'linear-gradient(135deg, #F59E0B, #D97706)', tab: 'Reports' },
+                      { label: 'Trainers', icon: '👨‍🏫', bg: 'linear-gradient(135deg, #8B5CF6, #7C3AED)', tab: 'Trainers' },
+                    ].map((action, i) => (
+                      <button
+                        key={i}
+                        className="admin-quick-action"
+                        onClick={() => setActiveTab(action.tab)}
+                      >
+                        <div className="admin-quick-action-icon" style={{ background: action.bg }}>
+                          {action.icon}
                         </div>
-                      </div>
+                        <span className="admin-quick-action-label">{action.label}</span>
+                      </button>
                     ))}
                   </div>
-                ) : (
-                  <div style={{ padding: '20px 0', color: '#64748B', fontSize: '13px' }}>
-                    No recent activities found.
+                </div>
+
+                {/* ─── Top Courses Bar Chart ─── */}
+                <div className="admin-section-card">
+                  <div className="admin-section-header">
+                    <div className="admin-section-title">
+                      <div className="admin-section-title-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>🏆</div>
+                      Top Courses
+                    </div>
                   </div>
-                )}
+                  <div>
+                    {courses.length > 0 ? (
+                      courses.slice(0, 5).map((course, i) => {
+                        const barColors = [
+                          'linear-gradient(90deg, #3B82F6, #60A5FA)',
+                          'linear-gradient(90deg, #10B981, #34D399)',
+                          'linear-gradient(90deg, #8B5CF6, #A78BFA)',
+                          'linear-gradient(90deg, #F59E0B, #FBBF24)',
+                          'linear-gradient(90deg, #06B6D4, #22D3EE)',
+                        ];
+                        const pct = Math.max(20, 100 - i * 18);
+                        return (
+                          <div key={i} className="admin-bar-chart-item">
+                            <span className="admin-bar-chart-label" title={course.title}>{course.title}</span>
+                            <div className="admin-bar-chart-track">
+                              <div className="admin-bar-chart-fill" style={{ width: `${pct}%`, background: barColors[i % barColors.length] }} />
+                            </div>
+                            <span className="admin-bar-chart-value">{pct}%</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p style={{ color: '#64748B', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>No courses yet.</p>
+                    )}
+                  </div>
+                </div>
+
               </div>
-            </div>
-          </div>
-        );
+            </AdminPage>
+          );
+        })();
       case 'Contact Requests':
         return renderContactRequestsTab();
       case 'Courses':
@@ -543,6 +1197,16 @@ export default function AdminPortal() {
         return renderReportsTab();
       case 'Settings':
         return renderSettingsTab();
+      case 'Trainer Requests':
+        return renderRequestsTab('Trainer Requests');
+      case 'Student Requests':
+        return renderRequestsTab('Student Requests');
+      case 'Live Classes':
+        return (
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '30px' }}>
+            <AdminLiveClasses />
+          </div>
+        );
       default:
         return (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '30px', textAlign: 'center' }}>
@@ -561,6 +1225,27 @@ export default function AdminPortal() {
           </div>
         );
     }
+  };
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropImage = async () => {
+    try {
+      const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      setCourseForm(prev => ({ ...prev, image: croppedImage, imageFile: imageFileName }));
+      setShowCropModal(false);
+      setImageToCrop(null);
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to crop image', 'error');
+    }
+  };
+
+  const cancelCrop = () => {
+    setShowCropModal(false);
+    setImageToCrop(null);
   };
 
   const handleSaveCourse = async () => {
@@ -583,16 +1268,20 @@ export default function AdminPortal() {
         body: JSON.stringify({
           title: courseForm.title,
           name: courseForm.name,
+          originalPrice: courseForm.originalPrice,
           price: courseForm.price,
           description: courseForm.description,
           content: courseForm.description, // compatibility
           image: courseForm.image,
           imageFile: courseForm.imageFile,
-          ppt: courseForm.ppt,
           pptFile: courseForm.pptFile,
           video: courseForm.video,
           videoFile: courseForm.videoFile,
-          programType: courseForm.programType
+          programType: courseForm.programType,
+          totalDurationHours: courseForm.totalDurationHours,
+          trainingDays: courseForm.trainingDays,
+          startDate: courseForm.startDate,
+          dailyStartTime: courseForm.dailyStartTime
         })
       });
 
@@ -607,6 +1296,33 @@ export default function AdminPortal() {
     } catch (err) {
       console.error('Error saving course:', err);
       showToast('Network error saving course.', 'error');
+    }
+  };
+
+  const handleAssignCourse = async (e) => {
+    e.preventDefault();
+    if (!assigneeEmail || !courseToAssign) return;
+    setAssigningCourse(true);
+    try {
+      const res = await fetch('/api/admin/assign-course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: assigneeEmail, courseId: courseToAssign.title })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Course assigned successfully!');
+        setShowCourseAssignModal(false);
+        setAssigneeEmail('');
+        fetchRegisteredUsers();
+      } else {
+        showToast(data.message || 'Failed to assign course.', true);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error assigning course.', true);
+    } finally {
+      setAssigningCourse(false);
     }
   };
 
@@ -1176,33 +1892,25 @@ export default function AdminPortal() {
     );
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Courses Management</h2>
-            <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' }}>Create, edit, view and manage all academic training programs.</p>
-          </div>
-          <button 
+      <AdminPage>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          <AdminPageHeader 
+            title="Courses Management" 
+            subtitle="Create, edit, view and manage all academic training programs."
+            emoji="📚"
+          />
+          <AdminButton 
+            variant="blue"
             onClick={() => {
-              setCourseForm({ id: null, title: '', name: '', price: '', description: '', image: '', imageFile: '', ppt: '', pptFile: '', video: '', videoFile: '', programType: 'Student Development Program' });
+              setCourseForm({ 
+                id: null, title: '', name: '', originalPrice: '', price: '', description: '', image: '', imageFile: '', ppt: '', pptFile: '', video: '', videoFile: '', programType: 'Student Development Program',
+                totalDurationHours: '', trainingDays: '', startDate: '', dailyStartTime: ''
+              });
               setShowCourseModal(true);
             }}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#005F7A',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'background-color 0.2s'
-            }}
           >
-            <span>+</span> Add New Course
-          </button>
+            + Add New Course
+          </AdminButton>
         </div>
 
         <div style={{
@@ -1211,37 +1919,19 @@ export default function AdminPortal() {
           gap: '24px'
         }}>
           {filteredCourses.length === 0 ? (
-            <div style={{
-              gridColumn: '1 / -1',
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              border: '1px solid #cbd5e1',
-              padding: '40px',
-              textAlign: 'center',
-              color: '#64748b'
-            }}>
+            <EnterpriseCard style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: '#64748b' }}>
               No courses found. Add a course to get started!
-            </div>
+            </EnterpriseCard>
           ) : (
             filteredCourses.map((c) => (
-              <div key={c._id || c.id} style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid #cbd5e1',
-                overflow: 'hidden',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.01)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'transform 0.2s'
-              }}>
+              <EnterpriseCard key={c._id || c.id} style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ height: '160px', backgroundColor: '#e2e8f0', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ height: '180px', backgroundColor: c.image ? '#ffffff' : '#e2e8f0', position: 'relative', overflow: 'hidden' }}>
                     {c.image ? (
                       <img 
                         src={c.image} 
                         alt={c.title} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                         onError={(e) => {
                           const fallback = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80';
                           if (e.target.src !== fallback) {
@@ -1283,38 +1973,51 @@ export default function AdminPortal() {
                 </div>
 
                 <div style={{ padding: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button 
-                    onClick={() => {
-                      setSelectedCourseForContent(c);
-                      setActiveContentSection('PPT');
-                      fetchRegisteredUsers();
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: '#005F7A',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      transition: 'background-color 0.2s'
-                    }}
-                  >
-                    📚 Manage Course Content
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '8px' }}>
+                    <AdminButton 
+                      variant="blue"
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        setSelectedCourseForContent(c);
+                        setActiveContentSection('PPT');
+                        fetchRegisteredUsers();
+                      }}
+                    >
+                      📚 Manage Course Content
+                    </AdminButton>
+                    {c.schedule && c.schedule.length > 0 && (
+                      <AdminButton 
+                        variant="outline"
+                        style={{ flex: 1, borderColor: '#005F7A', color: '#005F7A' }}
+                        onClick={() => {
+                          setSelectedScheduleCourse(c);
+                          setShowScheduleModal(true);
+                        }}
+                      >
+                        📅 View Schedule
+                      </AdminButton>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                    <button 
+                    <AdminButton 
+                      variant="outline"
+                      style={{ flex: 1, borderColor: '#3b82f6', color: '#3b82f6' }}
+                      onClick={() => {
+                        setCourseToAssign(c);
+                        setShowCourseAssignModal(true);
+                      }}
+                    >
+                      Assign
+                    </AdminButton>
+                    <AdminButton 
+                      variant="outline"
+                      style={{ flex: 1 }}
                       onClick={() => {
                         setCourseForm({
                           id: c._id || c.id,
                           title: c.title || '',
                           name: c.name || '',
+                          originalPrice: c.originalPrice || '',
                           price: c.price || '',
                           description: c.description || c.content || '',
                           image: c.image || '',
@@ -1323,95 +2026,63 @@ export default function AdminPortal() {
                           pptFile: c.pptName || '',
                           video: c.video || '',
                           videoFile: c.videoName || '',
-                          programType: c.programType || 'Student Development Program'
+                          programType: c.programType || 'Student Development Program',
+                          totalDurationHours: c.totalDurationHours || '',
+                          trainingDays: c.trainingDays || '',
+                          startDate: c.startDate ? new Date(c.startDate).toISOString() : '',
+                          dailyStartTime: c.dailyStartTime || ''
                         });
                         setShowCourseModal(true);
                       }}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        backgroundColor: '#f1f5f9',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '8px',
-                        color: '#475569',
-                        fontWeight: 600,
-                        fontSize: '12.5px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
                     >
                       Edit
-                    </button>
-                    <button 
+                    </AdminButton>
+                    <AdminButton 
+                      variant="outline"
+                      style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }}
                       onClick={() => handleDeleteCourse(c._id || c.id)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '8px',
-                        color: '#ef4444',
-                        fontWeight: 600,
-                        fontSize: '12.5px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
                     >
                       Delete
-                    </button>
+                    </AdminButton>
                   </div>
                 </div>
-              </div>
+              </EnterpriseCard>
             ))
           )}
         </div>
-      </div>
+      </AdminPage>
     );
   };
 
   const renderReportsTab = () => {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Reports & Feedback Center</h2>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' }}>
-            Review issues, feedback, and reports submitted by students, trainers, or companies for assigned work.
-          </p>
-        </div>
+      <AdminPage>
+        <AdminPageHeader 
+          title="Reports & Feedback Center" 
+          subtitle="Review issues, feedback, and reports submitted by students, trainers, or companies for assigned work."
+          emoji="📊"
+        />
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #cbd5e1',
-          padding: '40px',
-          textAlign: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.01)',
-          color: '#64748b'
-        }}>
+        <EnterpriseCard style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
           No reports or feedback submissions found.
-        </div>
-      </div>
+        </EnterpriseCard>
+      </AdminPage>
     );
   };
 
   const renderSettingsTab = () => {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>System Settings Configuration</h2>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' }}>Configure platform general preferences, SMTP email servers, security modes, and view access audit logs.</p>
-        </div>
+      <AdminPage>
+        <AdminPageHeader 
+          title="System Settings Configuration" 
+          subtitle="Configure platform general preferences, SMTP email servers, security modes, and view access audit logs."
+          emoji="⚙️"
+        />
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }} className="responsive-row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* General Preferences */}
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
+            <EnterpriseCard style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0' }}>LMS Platform Settings</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
@@ -1427,10 +2098,10 @@ export default function AdminPortal() {
                   </select>
                 </div>
               </div>
-            </div>
+            </EnterpriseCard>
 
             {/* Email SMTP Configuration */}
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
+            <EnterpriseCard style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0' }}>Email Notification Server (SMTP)</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
@@ -1448,12 +2119,12 @@ export default function AdminPortal() {
                   <input type="text" defaultValue="notifications@mbklms.com" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px' }} />
                 </div>
               </div>
-            </div>
+            </EnterpriseCard>
           </div>
 
           {/* Side panel: Info Audit Logs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
+            <EnterpriseCard style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0' }}>Security Audit Logs</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
@@ -1468,57 +2139,59 @@ export default function AdminPortal() {
                   </div>
                 ))}
               </div>
-            </div>
+            </EnterpriseCard>
             
-            <button onClick={() => showToast('Settings successfully updated!')} style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: '#005F7A',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '13.5px'
-            }}>Save Configuration</button>
+            <AdminButton 
+              variant="blue"
+              onClick={() => showToast('Settings successfully updated!')}
+              style={{ width: '100%' }}
+            >
+              Save Configuration
+            </AdminButton>
           </div>
         </div>
-      </div>
+      </AdminPage>
     );
+  };
+
+  const handleRemoveContactRequest = async (reqId) => {
+    try {
+      const res = await fetch(`/api/admin/access-requests/${reqId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setContactRequests(prev => prev.filter(r => (r._id || r.id) !== reqId));
+        showToast('Contact request removed.');
+      } else {
+        showToast(data.message || 'Failed to remove request.', 'error');
+      }
+    } catch (err) {
+      showToast('Network error removing request.', 'error');
+    }
   };
 
   const renderContactRequestsTab = () => {
     return (
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        border: '1px solid #cbd5e1',
-        padding: '24px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.01)'
-      }}>
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-            Contact & Resume Access Requests
-          </h3>
-          <p style={{ fontSize: '13.5px', color: '#64748b', marginTop: '6px' }}>
-            Approve or reject requests from users to see private profile details (contact numbers, emails, and resume links).
-          </p>
-        </div>
+      <AdminPage>
+        <AdminPageHeader 
+          title="Contact & Resume Access Requests" 
+          subtitle="Approve or reject requests from users to see private profile details (contact numbers, emails, and resume links)."
+          emoji="📨"
+        />
 
-        {contactRequests.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
-            No access requests found.
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <EnterpriseCard>
+          {contactRequests.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+              No access requests found.
+            </div>
+          ) : (
+            <AdminTableContainer>
               <thead>
-                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                  <th style={{ padding: '12px', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Requester User</th>
-                  <th style={{ padding: '12px', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Target Profile</th>
-                  <th style={{ padding: '12px', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '12px', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Date Submitted</th>
-                  <th style={{ padding: '12px', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Action</th>
+                <tr>
+                  <AdminTh>Requester User</AdminTh>
+                  <AdminTh>Target Profile</AdminTh>
+                  <AdminTh>Status</AdminTh>
+                  <AdminTh>Date Submitted</AdminTh>
+                  <AdminTh>Action</AdminTh>
                 </tr>
               </thead>
               <tbody>
@@ -1526,50 +2199,54 @@ export default function AdminPortal() {
                   const rowId = row._id || row.id;
                   return (
                     <tr key={rowId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '12px' }}>
+                      <AdminTd>
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.requesterName}</div>
                         <div style={{ fontSize: '11px', color: '#64748b' }}>{row.requesterEmail} ({row.requesterRole})</div>
-                      </td>
-                      <td style={{ padding: '12px' }}>
+                      </AdminTd>
+                      <AdminTd>
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.targetName}</div>
                         <div style={{ fontSize: '11px', color: '#64748b' }}>{row.targetEmail} ({row.targetRole})</div>
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          backgroundColor: row.status === 'Pending' ? '#fef3c7' : row.status === 'Approved' ? '#d1fae5' : '#fee2e2',
-                          color: row.status === 'Pending' ? '#b45309' : row.status === 'Approved' ? '#065f46' : '#b91c1c'
-                        }}>{row.status}</span>
-                      </td>
-                      <td style={{ padding: '12px', color: '#64748b', fontSize: '13px' }}>
+                      </AdminTd>
+                      <AdminTd>
+                        <AdminBadge variant={row.status === 'Pending' ? 'warning' : row.status === 'Approved' ? 'success' : 'danger'}>
+                          {row.status}
+                        </AdminBadge>
+                      </AdminTd>
+                      <AdminTd>
                         {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td style={{ padding: '12px' }}>
-                        {row.status === 'Pending' ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => {
-                              handleUpdateAccessRequest(rowId, 'Approved');
-                            }} style={{ padding: '6px 12px', backgroundColor: '#005F7A', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Approve</button>
-                            
-                            <button onClick={() => {
-                              handleUpdateAccessRequest(rowId, 'Rejected');
-                            }} style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Reject</button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '12.5px', color: '#94a3b8', fontStyle: 'italic' }}>Resolved</span>
-                        )}
-                      </td>
+                      </AdminTd>
+                      <AdminTd>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {row.status === 'Pending' ? (
+                            <>
+                              <AdminButton onClick={() => {
+                                handleUpdateAccessRequest(rowId, 'Approved');
+                              }} variant="blue">Approve</AdminButton>
+                              
+                              <AdminButton onClick={() => {
+                                handleUpdateAccessRequest(rowId, 'Rejected');
+                              }} variant="outline">Reject</AdminButton>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>Processed</span>
+                          )}
+                          <AdminButton
+                            variant="danger"
+                            onClick={() => handleRemoveContactRequest(rowId)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            Remove
+                          </AdminButton>
+                        </div>
+                      </AdminTd>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            </AdminTableContainer>
+          )}
+        </EnterpriseCard>
+      </AdminPage>
     );
   };
 
@@ -1585,7 +2262,7 @@ export default function AdminPortal() {
 
       {/* Sidebar Navigation */}
       <aside className={`admin-sidebar ${mobileSidebar ? 'open' : ''}`}>
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {/* Logo brand area */}
           <div className="admin-logo-area">
             <img 
@@ -1973,6 +2650,88 @@ export default function AdminPortal() {
           </div>
         </div>
       )}
+      
+      {/* Course Assignment Modal */}
+      {showCourseAssignModal && courseToAssign && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '500px',
+            padding: '30px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowCourseAssignModal(false)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                color: '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#005F7A', marginBottom: '20px' }}>
+              Assign Course: {courseToAssign.title}
+            </h3>
+            <form onSubmit={handleAssignCourse} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Select User (Student or Trainer)</label>
+                <select 
+                  required
+                  value={assigneeEmail}
+                  onChange={(e) => setAssigneeEmail(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
+                >
+                  <option value="">-- Select a User --</option>
+                  {registeredUsers
+                    .filter(u => u.role === 'student' || u.role === 'trainer')
+                    .map(u => (
+                      <option key={u.email} value={u.email}>
+                        {u.fullName || u.companyName || u.email} ({u.role})
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button 
+                  type="button"
+                  onClick={() => setShowCourseAssignModal(false)}
+                  style={{ padding: '10px 16px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={assigningCourse}
+                  style={{ padding: '10px 20px', backgroundColor: '#005F7A', color: '#fff', border: 'none', borderRadius: '8px', cursor: assigningCourse ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {assigningCourse ? 'Assigning...' : 'Assign Course'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Course Creation/Edit Modal */}
       {showCourseModal && (
         <div style={{
@@ -2045,15 +2804,27 @@ export default function AdminPortal() {
                 />
               </div>
 
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Course Price (₹)</label>
-                <input 
-                  type="text" 
-                  value={courseForm.price}
-                  onChange={(e) => setCourseForm(prev => ({ ...prev, price: e.target.value }))}
-                  placeholder="e.g. 15000"
-                  style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
-                />
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Original Price (Strike-through) (₹)</label>
+                  <input 
+                    type="text" 
+                    value={courseForm.originalPrice}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, originalPrice: e.target.value }))}
+                    placeholder="e.g. 4999"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Course Price (₹)</label>
+                  <input 
+                    type="text" 
+                    value={courseForm.price}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, price: e.target.value }))}
+                    placeholder="e.g. 999"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -2065,6 +2836,50 @@ export default function AdminPortal() {
                   placeholder="Provide a comprehensive course description..."
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px', resize: 'vertical' }}
                 />
+              </div>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Total Duration (Hours)</label>
+                  <input 
+                    type="number" 
+                    value={courseForm.totalDurationHours}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, totalDurationHours: e.target.value }))}
+                    placeholder="e.g. 45"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Training Days</label>
+                  <input 
+                    type="number" 
+                    value={courseForm.trainingDays}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, trainingDays: e.target.value }))}
+                    placeholder="e.g. 9"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={courseForm.startDate ? courseForm.startDate.split('T')[0] : ''}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Daily Start Time</label>
+                  <input 
+                    type="time" 
+                    value={courseForm.dailyStartTime}
+                    onChange={(e) => setCourseForm(prev => ({ ...prev, dailyStartTime: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px' }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -2081,78 +2896,107 @@ export default function AdminPortal() {
 
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Course Cover Image</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setCourseForm(prev => ({
-                          ...prev,
-                          image: reader.result, // base64 string
-                          imageFile: file.name
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  style={{ width: '100%', padding: '6px 0', fontSize: '13px' }}
-                />
+                <label style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  width: '100%', padding: '12px', backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', 
+                  borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#64748b', transition: 'all 0.2s'
+                }}>
+                  <span style={{ fontSize: '16px' }}>🖼️</span>
+                  {courseForm.imageFile ? courseForm.imageFile : 'Click to Upload Course Image'}
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onClick={(e) => { e.target.value = null; }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setImageToCrop(reader.result);
+                          setImageFileName(file.name);
+                          setShowCropModal(true);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
                 {courseForm.image && (
-                  <div style={{ marginTop: '10px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px dashed #cbd5e1' }}>
-                    <img src={courseForm.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ marginTop: '10px', height: '140px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <img 
+                      src={courseForm.image} 
+                      alt="Preview" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      onLoad={(e) => { e.target.style.display = 'block'; }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                   </div>
                 )}
               </div>
 
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Course PPT Presentation</label>
-                <input 
-                  type="file" 
-                  accept=".ppt,.pptx"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setCourseForm(prev => ({
-                          ...prev,
-                          ppt: reader.result, // base64 string
-                          pptFile: file.name
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  style={{ width: '100%', padding: '6px 0', fontSize: '13px' }}
-                />
-                {courseForm.pptFile && <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px' }}>📎 Loaded PPT: {courseForm.pptFile}</div>}
+                <label style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  width: '100%', padding: '12px', backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', 
+                  borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#64748b', transition: 'all 0.2s'
+                }}>
+                  <span style={{ fontSize: '16px' }}>📊</span>
+                  {courseForm.pptFile ? courseForm.pptFile : 'Click to Upload PPT Presentation'}
+                  <input 
+                    type="file" 
+                    accept=".ppt,.pptx"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setCourseForm(prev => ({
+                            ...prev,
+                            ppt: reader.result,
+                            pptFile: file.name
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {courseForm.pptFile && <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', fontWeight: 600 }}>📎 Loaded: {courseForm.pptFile}</div>}
               </div>
 
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>Course Video Lecture</label>
-                <input 
-                  type="file" 
-                  accept="video/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setCourseForm(prev => ({
-                          ...prev,
-                          video: reader.result, // base64 string
-                          videoFile: file.name
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  style={{ width: '100%', padding: '6px 0', fontSize: '13px' }}
-                />
-                {courseForm.videoFile && <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px' }}>🎬 Loaded Video: {courseForm.videoFile}</div>}
+                <label style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  width: '100%', padding: '12px', backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', 
+                  borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#64748b', transition: 'all 0.2s'
+                }}>
+                  <span style={{ fontSize: '16px' }}>🎬</span>
+                  {courseForm.videoFile ? courseForm.videoFile : 'Click to Upload Video Lecture'}
+                  <input 
+                    type="file" 
+                    accept="video/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setCourseForm(prev => ({
+                            ...prev,
+                            video: reader.result,
+                            videoFile: file.name
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {courseForm.videoFile && <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', fontWeight: 600 }}>🎬 Loaded: {courseForm.videoFile}</div>}
               </div>
             </div>
 
@@ -2171,6 +3015,175 @@ export default function AdminPortal() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Assign Trainer Modal */}
+      {showTrainerAssignModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '500px' }}>
+            <h3 style={{ margin: '0 0 20px 0' }}>Assign Trainer to Company</h3>
+            
+            <div className="form-group">
+              <label>Select Company</label>
+              <select 
+                value={selectedCompanyEmail} 
+                onChange={(e) => setSelectedCompanyEmail(e.target.value)}
+                className="form-input"
+              >
+                <option value="">-- Select Company --</option>
+                {registeredUsers.filter(u => u.role?.toLowerCase() === 'company').map(c => (
+                  <option key={c.email} value={c.email}>{c.companyName || c.fullName || c.email}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 16 }}>
+              <label>Select Trainer</label>
+              <select 
+                value={selectedTrainerEmail} 
+                onChange={(e) => setSelectedTrainerEmail(e.target.value)}
+                className="form-input"
+              >
+                <option value="">-- Select Trainer --</option>
+                {registeredUsers.filter(u => u.role?.toLowerCase() === 'trainer').map(t => (
+                  <option key={t.email} value={t.email}>{t.fullName || t.email}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: 24 }}>
+              <button 
+                onClick={() => setShowTrainerAssignModal(false)}
+                style={{ padding: '8px 16px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAssignTrainerToCompany}
+                style={{ padding: '8px 16px', background: '#4c5fd5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Image Modal */}
+      {showCropModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', width: '90%', maxWidth: '600px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: '#1B1F3B' }}>Adjust Image</h3>
+              <button onClick={cancelCrop} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>&times;</button>
+            </div>
+            
+            <div style={{ position: 'relative', flex: 1, backgroundColor: '#333' }}>
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={16 / 9}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            
+            <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '200px' }}>
+                <span style={{ fontSize: '14px', color: '#64748b' }}>Zoom:</span>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <button
+                onClick={handleCropImage}
+                style={{ padding: '10px 20px', backgroundColor: '#005F7A', color: '#FFFFFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}
+              >
+                Crop & Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompanyAssignModal && renderCompanyAssignModal()}
+      {showScheduleModal && selectedScheduleCourse && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '16px',
+            width: '100%', maxWidth: '800px', maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: '16px 16px 0 0' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#005F7A', margin: 0 }}>
+                Course Schedule: {selectedScheduleCourse.title}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setSelectedScheduleCourse(null);
+                }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div style={{ padding: '24px', overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '12px 16px', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Day</th>
+                      <th style={{ padding: '12px 16px', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Date</th>
+                      <th style={{ padding: '12px 16px', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Session Timing</th>
+                      <th style={{ padding: '12px 16px', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Duration</th>
+                      <th style={{ padding: '12px 16px', borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedScheduleCourse.schedule.map((session, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#0f172a', fontWeight: 500 }}>Day {session.dayNumber}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                          {new Date(session.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                          {session.startTime} - {session.endTime}
+                        </td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>{session.durationHours} Hours</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ 
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                            backgroundColor: session.status === 'Completed' ? '#dcfce7' : '#e0f2fe',
+                            color: session.status === 'Completed' ? '#166534' : '#0369a1'
+                          }}>
+                            {session.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -1,9 +1,9 @@
 [
   {
     "id": "2",
-    "title": "Electric Vehicles",
+    "title": "Electric Vechicle",
     "content": "Explore Electric Vehicle powertrain, battery management systems, motor control, and EV architecture.",
-    "image": "",
+    "image": "/ev-course.jpg",
     "ppt": "",
     "pptName": "",
     "video": "",
@@ -51,7 +51,7 @@
   },
   {
     "id": "7",
-    "title": "Cloud Computing (AWS)",
+    "title": "Cloud Computing",
     "content": "Deploy and maintain scalable web architectures on Amazon Web Services cloud infrastructure.",
     "image": "",
     "ppt": "",

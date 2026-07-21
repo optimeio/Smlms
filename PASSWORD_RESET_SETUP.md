@@ -1,7 +1,7 @@
 # Password Reset & OTP Verification Setup Guide
 
 ## Overview
-This guide explains how to set up the password reset and OTP email verification system for the Chemy LMS application.
+This guide explains how to set up the password reset and OTP email verification system for the MBK LMS application.
 
 ## Features Implemented
 ✅ Forgot Password functionality  

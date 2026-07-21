@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../state/useAuth';
 import '../styles/Login.css';
 
 export default function Login() {
@@ -10,6 +11,7 @@ export default function Login() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    role: 'Student',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -33,52 +35,49 @@ export default function Login() {
     { name: 'Emily Davis', email: 'emily.davis@outlook.com', avatarBg: '#d83b01' }
   ];
 
+  const { login } = useAuth();
+
   const handleSocialAccountSelect = async (providerEmail) => {
     setShowManageAccountModal(false);
     setServerError('');
     setIsSubmitting(true);
-    
-    // Map generic account emails to real system credentials
+
+    // Map generic account emails to real system credentials and expected role
     let email = '';
     let password = '';
-    
+    let role = 'Student';
+
     if (providerEmail === 'john.doe@gmail.com' || providerEmail === 'sarah.jenkins@outlook.com') {
       email = 'admin@smgroups.com';
       password = 'admin123';
+      role = 'Student';
     } else if (providerEmail === 'jane.smith@gmail.com' || providerEmail === 'emily.davis@outlook.com') {
       email = 'theoptime.io@gmail.com';
       password = 'tharan1234';
+      role = 'Student';
     } else if (providerEmail === 'mark.wilson@gmail.com') {
       email = 'hemalathamuthu09@gmail.com';
       password = 'hemalatha123';
+      role = 'Student';
     } else if (providerEmail === 'michael.miller@outlook.com') {
       email = 'thepavech@gmail.com';
       password = 'Password123';
+      role = 'Trainer';
     }
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setServerError(data.message || 'Invalid email or password.');
-      } else {
-        setIsSuccess(true);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setTimeout(() => {
-          if (data.user.email === 'admin@smgroups.com' || data.user.email === 'thesmgroups@gmail.com') {
-            navigate('/admin');
-          } else {
-            navigate('/dashboard');
-          }
-        }, 1500);
-      }
+      const user = await login({ email, password, role });
+      setIsSuccess(true);
+      setTimeout(() => {
+        if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 1500);
     } catch (err) {
       console.error('Login error:', err);
-      setServerError('Unable to connect to the server.');
+      setServerError(err.message || 'Invalid email or password.');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,35 +177,17 @@ export default function Login() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setServerError(data.message || 'Invalid email or password.');
-      } else {
-
-        setIsSuccess(true);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setTimeout(() => {
-          if (data.user.email === 'admin@smgroups.com' || data.user.email === 'thesmgroups@gmail.com') {
-            navigate('/admin');
-          } else {
-            navigate('/dashboard');
-          }
-        }, 1500);
-      }
+      const user = await login({ email: formData.email, password: formData.password, role: formData.role });
+      setIsSuccess(true);
+      setTimeout(() => {
+        if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 1500);
     } catch (err) {
-      console.error('Login connection error:', err);
-      setServerError('Unable to connect to the server. Please check if the backend is running.');
+      setServerError(err.message || 'Unable to connect to the server. Please check if the backend is running.');
     } finally {
       setIsSubmitting(false);
     }
@@ -339,11 +320,53 @@ export default function Login() {
                 </div>
               )}
 
-              {isSuccess && (
-                <div className="login-alert-success">
-                  <span>✓</span> Login successful! Redirecting...
-                </div>
-              )}
+              <AnimatePresence>
+                {isSuccess && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      backdropFilter: 'blur(10px)',
+                      padding: '16px 20px',
+                      borderRadius: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      marginBottom: '24px',
+                      boxShadow: '0 8px 32px rgba(16, 185, 129, 0.15)',
+                    }}
+                  >
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1, rotate: 360 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 10, delay: 0.1 }}
+                      style={{
+                        background: 'linear-gradient(135deg, #10B981, #059669)',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </motion.div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ color: '#059669', fontWeight: 800, fontSize: '15px', letterSpacing: '-0.3px' }}>Authentication Successful</span>
+                      <span style={{ color: '#047857', fontWeight: 500, fontSize: '13px', opacity: 0.8 }}>Securely redirecting to your dashboard...</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <form onSubmit={handleSubmit} className="login-credentials-form">
                 
@@ -403,6 +426,19 @@ export default function Login() {
 
                 {/* Options */}
                 <div className="login-form-options-redesigned">
+                  <label className="login-role-select-label">
+                    Login as
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      className="login-role-select"
+                    >
+                      <option value="Student">Student</option>
+                      <option value="Trainer">Trainer</option>
+                      <option value="Company">Company</option>
+                    </select>
+                  </label>
                   <label className="remember-me-checkbox-custom">
                     <input
                       type="checkbox"

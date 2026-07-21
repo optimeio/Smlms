@@ -6,8 +6,9 @@ export default function CoursesModal({ isOpen, onClose }) {
 
   const courses = [
     {
-      title: "Python Course - Master Programming & Build Real-World Projects",
-      desc: "Unlock your future in tech with an industry-focused Python course designed for beginners, students, and professionals who want to master programming and build practical software projects.",
+      title: "Python",
+      desc: "Versatile programming with Python for web, data, and scripting.",
+      image: "/python-course.jpg",
       emoji: "🐍",
       gradient: "linear-gradient(135deg, #FF6B00, #FF9F43)"
     },
@@ -185,9 +186,10 @@ export default function CoursesModal({ isOpen, onClose }) {
                     justifyContent: 'center',
                     fontSize: '36px',
                     flexShrink: 0,
-                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.06)'
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.06)',
+                    overflow: 'hidden'
                   }}>
-                    {course.emoji}
+                    {course.image ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : course.emoji}
                   </div>
 
                   {/* Body details */}

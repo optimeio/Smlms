@@ -44,6 +44,10 @@ export default function Contact() {
   }, []);
 
   const sendPhoneOTP = async (phone) => {
+    if (!phone) {
+      setPhoneOtpError('Please enter a phone number first.');
+      return;
+    }
     setIsSendingPhoneOTP(true);
     setPhoneOtpError('');
     setPhoneOtpSuccess('');
@@ -51,7 +55,7 @@ export default function Contact() {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, isRegister: true })
+        body: JSON.stringify({ phone, skipUserCheck: true })
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -169,7 +173,7 @@ export default function Contact() {
       <div className="floating-tech-card-glass tech-java" style={{ transform: `translate(${coords.x * 0.8}px, ${coords.y * 0.8}px)` }}>☕ Java</div>
       <div className="floating-tech-card-glass tech-node" style={{ transform: `translate(${coords.x * 1.0}px, ${coords.y * 1.0}px)` }}>🟢 Node</div>
       <div className="floating-tech-card-glass tech-sql" style={{ transform: `translate(${coords.x * 0.6}px, ${coords.y * 0.6}px)` }}>🛢️ SQL</div>
-      <div className="floating-tech-card-glass tech-cloud" style={{ transform: `translate(${coords.x * 1.2}px, ${coords.y * 1.2}px)` }}>☁️ Cloud</div>
+      <div className="floating-tech-card-glass tech-cloud" style={{ transform: `translate(${coords.x * 1.2}px, ${coords.y * 1.2}px)` }}>☁️ Cloud Computing</div>
       <div className="floating-tech-card-glass tech-ai" style={{ transform: `translate(${coords.x * 0.9}px, ${coords.y * 0.9}px)` }}>🤖 AI</div>
       <div className="floating-tech-card-glass tech-github" style={{ transform: `translate(${coords.x * 0.5}px, ${coords.y * 0.5}px)` }}>🐙 GitHub</div>
 

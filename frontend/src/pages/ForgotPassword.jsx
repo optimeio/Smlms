@@ -31,7 +31,7 @@ export default function ForgotPassword() {
       });
       const data = await res.json();
 
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         setError(data.message || 'Failed to send OTP. Please try again.');
       } else {
         setSuccess('Verification code sent! Redirecting…');

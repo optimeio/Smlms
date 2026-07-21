@@ -57,7 +57,7 @@ export default function Home() {
         <span>🛢️ SQL</span>
       </div>
       <div className="floating-tech-card-glass tech-cloud" style={{ transform: `translate(${coords.x * 1.2}px, ${coords.y * 1.2}px) rotate(8deg)` }}>
-        <span>☁️ Cloud</span>
+        <span>☁️ Cloud Computing</span>
       </div>
 
       <main className="landing-main">

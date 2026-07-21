@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AppLayout from '../components/AppLayout';
+import CompanyJobOffers from './dashboards/CompanyJobOffers';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -744,7 +746,6 @@ export default function Dashboard() {
   const [user, setUser] = useState({});
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Student specific state
   const [newSkill, setNewSkill] = useState('');
@@ -816,6 +817,18 @@ export default function Dashboard() {
   const [studentActiveTab, setStudentActiveTab] = useState('My Courses');
   const [activeSidebarTab, setActiveSidebarTab] = useState('Dashboard');
   const [toast, setToast] = useState(null);
+  const [trainerForm, setTrainerForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    expertise: '',
+    teachingMode: 'Online',
+    courseName: ''
+  });
+  const [trainerFormErrors, setTrainerFormErrors] = useState({});
+  const [trainerRegisterLoading, setTrainerRegisterLoading] = useState(false);
 
   const [directoryUsers, setDirectoryUsers] = useState([]);
   const [viewingProfile, setViewingProfile] = useState(null);
@@ -1148,10 +1161,12 @@ export default function Dashboard() {
       case 'company':
         return [
           { name: 'Dashboard', icon: '📊' },
+          { name: 'Job Offers', icon: '📝' },
           { name: 'Job Posts', icon: '💼' },
           { name: 'Applicants', icon: '👥' },
           { name: 'Interviews', icon: '🗓️' },
           { name: 'Hired Candidates', icon: '🎉' },
+          { name: 'Register Trainer', icon: '📝' },
           { name: 'Students Directory', icon: '👨‍🎓' },
           { name: 'Trainers Directory', icon: '👨‍🏫' },
           { name: 'Companies Directory', icon: '🏢' },
@@ -1265,6 +1280,414 @@ export default function Dashboard() {
     );
   };
 
+  const getProfileAgeLabel = (createdAt) => {
+    if (!createdAt) return 'Joined some time ago';
+    const created = new Date(createdAt);
+    const diffTime = Math.abs(new Date() - created);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 1) {
+      return '🆕 New (Today)';
+    }
+    if (diffDays <= 7) {
+      return `🆕 New (${diffDays} days ago)`;
+    }
+    return `Joined ${diffDays} days ago`;
+  };
+
+  const handleRegisterTrainer = async (e) => {
+    e.preventDefault();
+    setTrainerFormErrors({});
+    
+    // Validations
+    const errors = {};
+    if (!trainerForm.fullName || trainerForm.fullName.trim().length < 3) {
+      errors.fullName = 'Trainer name must be at least 3 characters.';
+    }
+    if (!trainerForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trainerForm.email)) {
+      errors.email = 'Please enter a valid email address.';
+    }
+    if (!trainerForm.phone || !/^\d{10}$/.test(trainerForm.phone)) {
+      errors.phone = 'Please enter a valid 10-digit mobile number.';
+    }
+    if (!trainerForm.password || trainerForm.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters.';
+    }
+    if (trainerForm.password !== trainerForm.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setTrainerFormErrors(errors);
+      return;
+    }
+    
+    setTrainerRegisterLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...trainerForm,
+          role: 'trainer'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToastMsg('Trainer registered successfully!');
+        setTrainerForm({
+          fullName: '',
+          email: '',
+          phone: '',
+          password: '',
+          confirmPassword: '',
+          expertise: '',
+          teachingMode: 'Online',
+          courseName: ''
+        });
+        // Fetch directory users again so the new trainer is included
+        fetchDirectoryUsers();
+      } else {
+        if (data.errors) {
+          setTrainerFormErrors(data.errors);
+        } else {
+          showToastMsg(data.message || 'Failed to register trainer.', 'error');
+        }
+      }
+    } catch (err) {
+      showToastMsg('Server error. Please try again.', 'error');
+    } finally {
+      setTrainerRegisterLoading(false);
+    }
+  };
+
+  const renderRegisterTrainerForm = () => {
+    const cardStyle = { background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' };
+    const labelStyle = { fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' };
+    const inputSt = { width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 14, color: '#1e293b', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' };
+    const selectSt = { ...inputSt, appearance: 'none', background: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23475569\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E") no-repeat right 16px center/16px' };
+    const errorStyle = { fontSize: 12, color: '#ef4444', marginTop: 4, fontWeight: 600 };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 680 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#1B1F3B' }}>📝 Register New Trainer</h2>
+          <p style={{ margin: '4px 0 0 0', fontSize: 14, color: '#64748B' }}>Add a new teaching professional to your company directory</p>
+        </div>
+
+        <div style={cardStyle}>
+          <form onSubmit={handleRegisterTrainer} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>Full Name</label>
+                <input 
+                  type="text" 
+                  value={trainerForm.fullName} 
+                  onChange={e => setTrainerForm({ ...trainerForm, fullName: e.target.value })} 
+                  style={inputSt}
+                  placeholder="e.g. Dr. Sarah Jenkins"
+                />
+                {trainerFormErrors.fullName && <div style={errorStyle}>{trainerFormErrors.fullName}</div>}
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Email Address</label>
+                <input 
+                  type="email" 
+                  value={trainerForm.email} 
+                  onChange={e => setTrainerForm({ ...trainerForm, email: e.target.value })} 
+                  style={inputSt}
+                  placeholder="trainer@company.com"
+                />
+                {trainerFormErrors.email && <div style={errorStyle}>{trainerFormErrors.email}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>Mobile Number</label>
+                <input 
+                  type="tel" 
+                  value={trainerForm.phone} 
+                  onChange={e => setTrainerForm({ ...trainerForm, phone: e.target.value })} 
+                  style={inputSt}
+                  placeholder="10-digit number"
+                />
+                {trainerFormErrors.phone && <div style={errorStyle}>{trainerFormErrors.phone}</div>}
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Expertise / Specialization</label>
+                <input 
+                  type="text" 
+                  value={trainerForm.expertise} 
+                  onChange={e => setTrainerForm({ ...trainerForm, expertise: e.target.value })} 
+                  style={inputSt}
+                  placeholder="e.g. React, Node.js, Python"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>Preferred Course Name</label>
+                <input 
+                  type="text" 
+                  value={trainerForm.courseName} 
+                  onChange={e => setTrainerForm({ ...trainerForm, courseName: e.target.value })} 
+                  style={inputSt}
+                  placeholder="e.g. Full Stack Web Development"
+                />
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Teaching Mode</label>
+                <select 
+                  value={trainerForm.teachingMode} 
+                  onChange={e => setTrainerForm({ ...trainerForm, teachingMode: e.target.value })} 
+                  style={selectSt}
+                >
+                  <option value="Online">Online Sessions</option>
+                  <option value="Offline">Offline Classroom</option>
+                  <option value="Hybrid">Hybrid Model</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>Password</label>
+                <input 
+                  type="password" 
+                  value={trainerForm.password} 
+                  onChange={e => setTrainerForm({ ...trainerForm, password: e.target.value })} 
+                  style={inputSt}
+                  placeholder="Min 8 chars, letters + numbers"
+                />
+                {trainerFormErrors.password && <div style={errorStyle}>{trainerFormErrors.password}</div>}
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Confirm Password</label>
+                <input 
+                  type="password" 
+                  value={trainerForm.confirmPassword} 
+                  onChange={e => setTrainerForm({ ...trainerForm, confirmPassword: e.target.value })} 
+                  style={inputSt}
+                  placeholder="Repeat password"
+                />
+                {trainerFormErrors.confirmPassword && <div style={errorStyle}>{trainerFormErrors.confirmPassword}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button 
+                type="submit" 
+                disabled={trainerRegisterLoading}
+                className="py-3 px-8 rounded-xl text-white font-bold text-sm cursor-pointer border-0 bg-[#4C5FD5] hover:bg-[#2A3EB1] transition-colors"
+                style={{ opacity: trainerRegisterLoading ? 0.7 : 1 }}
+              >
+                {trainerRegisterLoading ? 'Registering Trainer...' : '✓ Register Trainer'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCompanySettingsView = () => {
+    const cardStyle = { background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '24px 28px', marginBottom: 20 };
+    const labelStyle = { fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 6, display: 'block' };
+    const inputSt = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14, color: '#1e293b', outline: 'none', boxSizing: 'border-box' };
+    const dividerStyle = { borderTop: '1px solid #f1f5f9', margin: '20px 0' };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#1B1F3B' }}>Settings</h2>
+          <p style={{ margin: '4px 0 20px', fontSize: 14, color: '#64748B' }}>Configure your account preferences and security.</p>
+        </div>
+
+        {/* Security */}
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🔒</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Security</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Manage your password and account security</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Current Password</label>
+              <input type="password" style={inputSt} placeholder="Enter current password" />
+            </div>
+            <div>
+              <label style={labelStyle}>New Password</label>
+              <input type="password" style={inputSt} placeholder="Min 8 characters" />
+            </div>
+            <div>
+              <label style={labelStyle}>Confirm New Password</label>
+              <input type="password" style={inputSt} placeholder="Re-enter new password" />
+            </div>
+          </div>
+          <div style={dividerStyle} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, flex: 1, marginRight: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>Login Alerts</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Get notified when a new device logs in</div>
+              </div>
+            </div>
+            <button onClick={() => showToast('Password updated!')} style={{ padding: '10px 24px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+              Change Password
+            </button>
+          </div>
+        </div>
+
+        {/* Notification Preferences */}
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fce4ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🔔</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Notification Preferences</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Choose how and when you receive updates</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { title: 'Email Notifications', desc: 'Receive updates about platform activity via email' },
+              { title: 'Trainer Assignment Alerts', desc: 'Get notified when admin assigns a trainer to your company' },
+              { title: 'Course & Certificate Updates', desc: 'Alerts for new courses, completions, and certificate issuance' },
+            ].map(item => (
+              <div key={item.title} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f8fafc', borderRadius: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{item.title}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{item.desc}</div>
+                </div>
+                <div style={{ width: 44, height: 24, borderRadius: 12, cursor: 'pointer', background: '#4f46e5', position: 'relative' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: 23, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Appearance & Language */}
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🖥️</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Appearance & Language</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Customize how the platform looks for you</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Theme</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {['Light', 'Dark', 'System'].map(t => (
+                  <div key={t} onClick={() => { if (t === 'Dark') setIsDarkMode(true); else setIsDarkMode(false); }} style={{
+                    flex: 1, padding: '12px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
+                    background: (t === 'Dark' && isDarkMode) || (t === 'Light' && !isDarkMode) ? '#eef0ff' : '#f8fafc',
+                    border: `2px solid ${(t === 'Dark' && isDarkMode) || (t === 'Light' && !isDarkMode) ? '#4f46e5' : '#e2e8f0'}`,
+                    fontWeight: 600, fontSize: 13, color: (t === 'Dark' && isDarkMode) || (t === 'Light' && !isDarkMode) ? '#4f46e5' : '#64748b',
+                  }}>
+                    {t === 'Light' ? '☀️' : t === 'Dark' ? '🌙' : '🖥️'}
+                    <div>{t}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Language</label>
+              <select style={inputSt}>
+                <option value="en">English</option>
+                <option value="ta">Tamil</option>
+                <option value="hi">Hindi</option>
+                <option value="te">Telugu</option>
+                <option value="kn">Kannada</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Timezone</label>
+              <select style={inputSt}>
+                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                <option value="America/New_York">America/New York (EST)</option>
+                <option value="Europe/London">Europe/London (GMT)</option>
+                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Data & Privacy */}
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🌐</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Data & Privacy</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Manage your data and account</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { title: 'Profile Visibility', desc: 'Allow admin and others to see your company profile' },
+              { title: 'Activity Logging', desc: 'Allow the platform to log your activity for analytics' },
+            ].map(item => (
+              <div key={item.title} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f8fafc', borderRadius: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{item.title}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{item.desc}</div>
+                </div>
+                <div style={{ width: 44, height: 24, borderRadius: 12, cursor: 'pointer', background: '#4f46e5', position: 'relative' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: 23, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={dividerStyle} />
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => showToast('Your data export has been started.')} style={{ padding: '10px 24px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+              📥 Export My Data
+            </button>
+            <button onClick={() => { if (window.confirm('Are you sure? This is irreversible.')) showToast('Account deletion request sent to admin.'); }} style={{ padding: '10px 24px', background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+              🗑️ Delete Account
+            </button>
+          </div>
+        </div>
+
+        {/* Help & Support */}
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>❓</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Help & Support</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Get assistance or report issues</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            {[
+              { title: 'Documentation', desc: 'Browse platform guides and FAQs', color: '#4f46e5' },
+              { title: 'Contact Support', desc: 'Reach out to our support team', color: '#0ea5e9' },
+              { title: 'Report a Bug', desc: 'Let us know about any issues', color: '#e91e63' },
+            ].map(item => (
+              <div key={item.title} style={{ padding: '16px', background: '#f8fafc', borderRadius: 10, cursor: 'pointer', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: item.color, marginBottom: 4 }}>{item.title}</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', padding: '8px 0 16px', color: '#94a3b8', fontSize: 12 }}>
+          MBK LMS Platform &bull; Version 2.1.0 &bull; &copy; {new Date().getFullYear()}
+        </div>
+      </div>
+    );
+  };
+
   const renderDirectoryView = (targetRole) => {
     const filtered = directoryUsers.filter(u => u.role === targetRole && u.email !== user.email);
 
@@ -1317,7 +1740,21 @@ export default function Dashboard() {
                   return (
                     <tr key={u.email} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
-                        <div className="font-bold text-[#1B1F3B]">{displayName}</div>
+                        <div className="font-bold text-[#1B1F3B] flex items-center gap-2">
+                          {displayName}
+                          {targetRole === 'trainer' && (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: getProfileAgeLabel(u.createdAt).includes('New') ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.06)',
+                              color: getProfileAgeLabel(u.createdAt).includes('New') ? '#10B981' : '#64748B'
+                            }}>
+                              {getProfileAgeLabel(u.createdAt)}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-400 uppercase tracking-wider">{u.role}</div>
                       </td>
                       {targetRole === 'student' && (
@@ -1630,11 +2067,22 @@ export default function Dashboard() {
                     >
                       <div className="h-32 bg-slate-100 relative">
                         {course.image ? (
-                          <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-slate-400 text-xs font-semibold">No Preview</div>
-                        )}
+                          <img 
+                            src={course.image} 
+                            alt={course.title} 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) {
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div className="items-center justify-center h-full text-slate-400 text-xs font-semibold" style={{ display: course.image ? 'none' : 'flex', width: '100%', position: 'absolute', top: 0, left: 0 }}>No Preview</div>
                         <span className="absolute top-3 right-3 bg-slate-900/80 text-white py-1 px-2.5 rounded-full text-[10px] font-bold">
+                          <del style={{ color: '#94a3b8', marginRight: '6px' }}>₹{course.originalPrice || '4999'}</del>
                           ₹{course.price || 'Free'}
                         </span>
                       </div>
@@ -2282,6 +2730,8 @@ export default function Dashboard() {
             </div>
           </div>
         );
+      case 'Job Offers':
+        return <CompanyJobOffers user={user} />;
 
       case 'Job Posts':
         return (
@@ -2429,7 +2879,10 @@ export default function Dashboard() {
         );
 
       case 'Settings':
-        return renderSettingsView();
+        return renderCompanySettingsView();
+
+      case 'Register Trainer':
+        return renderRegisterTrainerForm();
 
       case 'Students Directory':
         return renderDirectoryView('student');
@@ -2446,7 +2899,7 @@ export default function Dashboard() {
   };
 
 
-  if (user.role === 'student' && activeSidebarTab === 'Dashboard') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Dashboard') {
     const tokens = {
       bg: "#f6f7fb",
       surface: "#ffffff",
@@ -2486,14 +2939,14 @@ export default function Dashboard() {
 
     const continueLearning = [
       {
-        title: "Micro Soft Office with PowerPoint",
+        title: "MicroSoft  PowerPoint With AI",
         meta: "By MBK Expert · 4 lessons left",
         progress: 75,
         color: tokens.coral,
         icon: "🖥️",
       },
       {
-        title: "Micro Soft Office with Excel",
+        title: "MicroSoft Excel with AI",
         meta: "By MBK Expert · 5 lessons left",
         progress: 40,
         color: tokens.indigo,
@@ -3265,7 +3718,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Assignments') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Assignments') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -3563,11 +4016,11 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'My Courses') {
+  if (false && user.role === 'student' && activeSidebarTab === 'My Courses') {
     // Start with the user's template static active courses
     const defaultCourses = [
-      { title: "Micro Soft Office with PowerPoint" },
-      { title: "Micro Soft Office with Excel" },
+      { title: "MicroSoft  PowerPoint With AI" },
+      { title: "MicroSoft Excel with AI" },
     ];
     // Combine with database assigned courses, ensuring no duplicates
     const dbCourses = (user.assignedCourses || []).map(title => ({ title }));
@@ -3876,8 +4329,12 @@ export default function Dashboard() {
                     <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, color: "#d97706" }}>
                       AVAILABLE
                     </div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: "#1f2937", marginTop: 6, marginBottom: 20 }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#1f2937", marginTop: 6, marginBottom: 6 }}>
                       {course.title}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1f2937", marginBottom: 20 }}>
+                      <del style={{ color: '#94a3b8', marginRight: '6px' }}>₹{course.originalPrice || '4999'}</del>
+                      ₹{course.price || '999'}
                     </div>
                     <button
                       onClick={() => handleBuyCourse(course.title)}
@@ -3910,7 +4367,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Live Classes') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Live Classes') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -4247,7 +4704,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Certificates') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Certificates') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -4522,7 +4979,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Students Directory') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Students Directory') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -4850,7 +5307,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Trainers Directory') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Trainers Directory') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -5178,7 +5635,7 @@ export default function Dashboard() {
     );
   }
 
-  if (user.role === 'student' && activeSidebarTab === 'Companies Directory') {
+  if (false && user.role === 'student' && activeSidebarTab === 'Companies Directory') {
     return (
       <div style={{ display: "flex", fontFamily: "'Inter','Segoe UI',sans-serif", background: "#fafafc", minHeight: "100vh", width: '100%' }}>
         {/* Sidebar */}
@@ -5444,260 +5901,64 @@ export default function Dashboard() {
   }
 
   return (
-    <div 
-      className="lms-dashboard-wrapper"
-      style={{
-        backgroundColor: '#F5F6FB',
-        color: '#1B1F3B',
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      
-      {/* MOBILE DRAWER SIDEBAR */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-50 bg-slate-900/60 lg:hidden flex transition-opacity duration-300"
-          onClick={() => setIsMobileMenuOpen(false)}
-        >
-          <aside 
-            className="w-[280px] h-full p-6 flex flex-col justify-between shadow-2xl transition-transform duration-300 transform translate-x-0"
-            style={{ backgroundColor: '#FFFFFF' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              {/* Logo */}
-              <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img 
-                    src="/logo.png" 
-                    alt="MBK Technology Logo" 
-                    className="h-12 w-12 object-contain" 
-                  />
-                  <div className="lms-logo-text">
-                    <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#4C5FD5', fontFamily: "'Inter', sans-serif", lineHeight: 1.1 }}>MBK</h2>
-                    <p style={{ fontSize: '10px', color: '#64748B', textTransform: 'uppercase', fontWeight: 800, margin: '2px 0 0 0', letterSpacing: '1.2px', fontFamily: "'Inter', sans-serif" }}>CarrierZ</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-slate-400 hover:text-slate-655 text-2xl bg-transparent border-0 cursor-pointer"
+    <>
+      <AppLayout
+        user={user}
+        activeTab={activeSidebarTab}
+        onTabChange={setActiveSidebarTab}
+        sidebarItems={getSidebarItems()}
+        onSearch={() => {}}
+        onNotificationClick={() => {}}
+        onSignOut={handleSignOut}
+      >
+        <div className="lms-main-content" style={{ padding: '30px 40px', maxWidth: 1200, margin: '0 auto' }}>
+          {/* Dashboard Content */}
+          <div>
+            {/* Welcome Header */}
+            {activeSidebarTab === 'Dashboard' && (
+              <div className="mb-8 text-left">
+                <h1 className="text-3xl font-bold m-0 mb-1 leading-tight text-[#1B1F3B]" style={{ fontFamily: "'Inter', sans-serif" }}>
+                  {user.role === 'trainer' ? 'Welcome back Trainer 👋' : user.role === 'company' ? `Welcome back ${user.fullName || 'ABC Technologies'} 👋` : `Welcome back ${user.fullName || 'John Doe'} 👋`}
+                </h1>
+                <p className="text-xs sm:text-sm m-0 text-slate-500 font-semibold">
+                  {user.role === 'trainer'
+                    ? "You've completed 50% of your teaching goal this month"
+                    : user.role === 'company'
+                    ? "You've reviewed 50% of your applicants this month"
+                    : "You've learned 50% of your goal this month"}
+                </p>
+
+                {/* Coding-Bootcamp-style Hero progress card */}
+                <div 
+                  className="mt-6 p-6 rounded-2xl bg-white border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+                  style={{ borderColor: '#E7E9F5', borderRadius: '18px' }}
                 >
-                  ✕
-                </button>
-              </div>
-
-              {/* Dynamic Menu items */}
-              <nav className="flex flex-col gap-1.5">
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 700, color: '#A3AED0', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '16px', marginBottom: '6px', display: 'block' }}>Main Menu</span>
-                {getSidebarItems().filter(item => item.name !== 'Logout' && item.name !== 'Settings').map((item) => (
-                  <div
-                    key={item.name}
-                    onClick={() => {
-                      setActiveSidebarTab(item.name);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer text-sm font-semibold transition-all duration-250 ${
-                      activeSidebarTab === item.name 
-                        ? 'text-white font-bold' 
-                        : 'text-slate-500 hover:bg-[#F3F5FF] hover:text-[#4C5FD5]'
-                    }`}
-                    style={{
-                      backgroundColor: activeSidebarTab === item.name ? '#4C5FD5' : 'transparent',
-                    }}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.name}</span>
+                  <div>
+                    <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, color: '#1B1F3B', margin: '0 0 4px 0' }}>
+                      {user.role === 'trainer' ? 'Python Full Stack Bootcamp' : user.role === 'company' ? 'Frontend Developer (React) Drive' : 'Python Basics & Functions Mastery'}
+                    </h3>
+                    <span className="text-xs text-slate-400 font-semibold">Created by Daniel Walter Scott</span>
                   </div>
-                ))}
-
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 700, color: '#A3AED0', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '16px', marginTop: '16px', marginBottom: '6px', display: 'block' }}>Settings</span>
-                {getSidebarItems().filter(item => item.name === 'Logout' || item.name === 'Settings').map((item) => (
-                  <div
-                    key={item.name}
-                    onClick={() => {
-                      if (item.action) {
-                        item.action();
-                      } else {
-                        setActiveSidebarTab(item.name);
-                        setIsMobileMenuOpen(false);
-                      }
-                    }}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer text-sm font-semibold transition-all duration-250 ${
-                      activeSidebarTab === item.name 
-                        ? 'text-white font-bold' 
-                        : (item.name === 'Logout' ? 'text-rose-500 hover:bg-rose-50' : 'text-slate-500 hover:bg-[#F3F5FF] hover:text-[#4C5FD5]')
-                    }`}
-                    style={{
-                      backgroundColor: activeSidebarTab === item.name ? '#4C5FD5' : 'transparent',
-                    }}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.name}</span>
+                  <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+                    <ProgressRing percentage={50} />
+                    <button 
+                      onClick={() => setActiveSidebarTab('My Courses')}
+                      className="py-2.5 px-6 rounded-xl text-white font-bold text-xs sm:text-sm cursor-pointer border-0 bg-[#4C5FD5] hover:bg-[#2A3EB1] transition-colors"
+                    >
+                      Continue
+                    </button>
                   </div>
-                ))}
-              </nav>
-            </div>
-            
-            <div className="text-[11px] text-slate-400 pt-4 border-t border-slate-100">
-              © 2026 MBK CarrierZ
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {/* DESKTOP SIDEBAR */}
-      <aside className="lms-sidebar" style={{ backgroundColor: '#FFFFFF', borderRight: '1px solid #E7E9F5' }}>
-        <div>
-          {/* Logo brand area */}
-          <div className="lms-logo-area" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px', paddingBottom: '16px', borderBottom: '1px solid #E7E9F5' }}>
-            <img 
-              src="/logo.png" 
-              alt="MBK Technology Logo" 
-              className="h-12 w-12 object-contain" 
-            />
-            <div className="lms-logo-text">
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#4C5FD5', fontFamily: "'Inter', sans-serif", lineHeight: 1.1 }}>MBK</h2>
-              <p style={{ fontSize: '10px', color: '#64748B', textTransform: 'uppercase', fontWeight: 800, margin: '2px 0 0 0', letterSpacing: '1.2px', fontFamily: "'Inter', sans-serif" }}>CarrierZ</p>
-            </div>
-          </div>
-
-          {/* Dynamic Menu items */}
-          <nav className="lms-menu-section" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 700, color: '#A3AED0', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '16px', marginBottom: '6px', display: 'block' }}>Main Menu</span>
-            {getSidebarItems().filter(item => item.name !== 'Logout' && item.name !== 'Settings').map((item) => (
-              <button
-                key={item.name}
-                onClick={() => setActiveSidebarTab(item.name)}
-                className={`lms-menu-item flex items-center gap-3 px-4 py-2.5 rounded-xl border-0 outline-none w-full text-left font-semibold text-xs sm:text-sm transition-all duration-150 ${
-                  activeSidebarTab === item.name 
-                    ? 'text-white' 
-                    : 'text-slate-500 hover:bg-[#F3F5FF] hover:text-[#4C5FD5]'
-                }`}
-                style={{
-                  backgroundColor: activeSidebarTab === item.name ? '#4C5FD5' : 'transparent',
-                }}
-              >
-                <span className="text-base">{item.icon}</span>
-                <span>{item.name}</span>
-              </button>
-            ))}
-
-            <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '9px', fontWeight: 700, color: '#A3AED0', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '16px', marginTop: '16px', marginBottom: '6px', display: 'block' }}>Settings</span>
-            {getSidebarItems().filter(item => item.name === 'Logout' || item.name === 'Settings').map((item) => (
-              <button
-                key={item.name}
-                onClick={() => {
-                  if (item.action) {
-                    item.action();
-                  } else {
-                    setActiveSidebarTab(item.name);
-                  }
-                }}
-                className={`lms-menu-item flex items-center gap-3 px-4 py-2.5 rounded-xl border-0 outline-none w-full text-left font-semibold text-xs sm:text-sm transition-all duration-150 ${
-                  activeSidebarTab === item.name 
-                    ? 'text-white' 
-                    : (item.name === 'Logout' ? 'text-rose-500 hover:bg-rose-50' : 'text-slate-500 hover:bg-[#F3F5FF] hover:text-[#4C5FD5]')
-                }`}
-                style={{
-                  backgroundColor: activeSidebarTab === item.name ? '#4C5FD5' : 'transparent',
-                }}
-              >
-                <span className="text-base">{item.icon}</span>
-                <span>{item.name}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-      </aside>
-
-      {/* RIGHT MAIN PANEL */}
-      <div className="lms-main-content" style={{ backgroundColor: '#F5F6FB', minHeight: '100vh', padding: '30px 40px' }}>
-        {/* Top Header */}
-        <div className="lms-header-bar flex items-center justify-between mb-8 pb-4 border-b border-[#E7E9F5]">
-          <div className="flex items-center gap-4">
-            {/* Hamburger Button for mobile */}
-            <button 
-              className="mobile-hamburger-btn p-2 text-xl hover:bg-slate-100 rounded-xl"
-              onClick={() => setIsMobileMenuOpen(true)}
-              style={{ display: 'none' }}
-            >
-              ☰
-            </button>
-            <h2 className="text-lg font-bold text-[#1B1F3B] m-0" style={{ fontFamily: "'Inter', sans-serif" }}>Dashboard</h2>
-          </div>
-
-          {/* Right Header items */}
-          <div className="flex items-center gap-5">
-            {/* Search Icon */}
-            <button className="border-none bg-transparent text-slate-400 hover:text-[#4C5FD5] cursor-pointer text-lg p-1">
-              🔍
-            </button>
-            {/* Notifications Icon */}
-            <button className="border-none bg-transparent text-slate-400 hover:text-[#4C5FD5] cursor-pointer text-lg p-1">
-              🔔
-            </button>
-
-            {/* Profile Menu */}
-            <div className="flex items-center gap-2.5 cursor-pointer">
-              <div 
-                className="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm"
-                style={{ backgroundColor: '#4C5FD5', fontFamily: "'Inter', sans-serif" }}
-              >
-                {user.fullName ? user.fullName[0] : 'U'}
-              </div>
-              <div className="hidden sm:block text-left" onClick={handleSignOut}>
-                <p className="m-0 text-xs font-bold leading-none mb-0.5 text-slate-800">{user.fullName}</p>
-                <span className="text-[10px] block text-slate-400">Logout</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Dashboard Content */}
-        <div>
-          {/* Welcome Header */}
-          {activeSidebarTab === 'Dashboard' && (
-            <div className="mb-8 text-left">
-              <h1 className="text-3xl font-bold m-0 mb-1 leading-tight text-[#1B1F3B]" style={{ fontFamily: "'Inter', sans-serif" }}>
-                {user.role === 'trainer' ? 'Welcome back Trainer 👋' : user.role === 'company' ? `Welcome back ${user.fullName || 'ABC Technologies'} 👋` : `Welcome back ${user.fullName || 'John Doe'} 👋`}
-              </h1>
-              <p className="text-xs sm:text-sm m-0 text-slate-500 font-semibold">
-                {user.role === 'trainer'
-                  ? "You've completed 50% of your teaching goal this month"
-                  : user.role === 'company'
-                  ? "You've reviewed 50% of your applicants this month"
-                  : "You've learned 50% of your goal this month"}
-              </p>
-
-              {/* Coding-Bootcamp-style Hero progress card */}
-              <div 
-                className="mt-6 p-6 rounded-2xl bg-white border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-                style={{ borderColor: '#E7E9F5', borderRadius: '18px' }}
-              >
-                <div>
-                  <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: '18px', fontWeight: 700, color: '#1B1F3B', margin: '0 0 4px 0' }}>
-                    {user.role === 'trainer' ? 'Python Full Stack Bootcamp' : user.role === 'company' ? 'Frontend Developer (React) Drive' : 'Python Basics & Functions Mastery'}
-                  </h3>
-                  <span className="text-xs text-slate-400 font-semibold">Created by Daniel Walter Scott</span>
-                </div>
-                <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
-                  <ProgressRing percentage={50} />
-                  <button 
-                    onClick={() => setActiveSidebarTab('My Courses')}
-                    className="py-2.5 px-6 rounded-xl text-white font-bold text-xs sm:text-sm cursor-pointer border-0 bg-[#4C5FD5] hover:bg-[#2A3EB1] transition-colors"
-                  >
-                    Continue
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {user.role === 'student' && renderStudentContent()}
-          {user.role === 'trainer' && renderTrainerContent()}
-          {user.role === 'company' && renderCompanyContent()}
+            {user.role === 'student' && renderStudentContent()}
+            {user.role === 'trainer' && renderTrainerContent()}
+            {user.role === 'company' && renderCompanyContent()}
+          </div>
         </div>
-      </div>
+      </AppLayout>
+
 
       {toast && (
         <div 
@@ -5941,6 +6202,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -107,6 +107,14 @@ export default function Register() {
   };
 
   const sendTrainerOTP = async (email) => {
+    if (!email) {
+      if (!showTrainerOTP) {
+        setErrors(prev => ({ ...prev, email: 'Please enter an email address first.' }));
+      } else {
+        setOtpError('Please enter an email address first.');
+      }
+      return;
+    }
     setIsSendingOTP(true);
     setOtpError('');
     setOtpSuccess('');
@@ -176,6 +184,10 @@ export default function Register() {
   };
 
   const sendPhoneOTP = async (email) => {
+    if (!email) {
+      setPhoneOtpError('Please enter an email address first.');
+      return;
+    }
     setIsSendingPhoneOTP(true);
     setPhoneOtpError('');
     setPhoneOtpSuccess('');
@@ -190,11 +202,14 @@ export default function Register() {
         setPhoneOtpSuccess(data.message || 'OTP sent successfully!');
         setShowPhoneOTP(true);
       } else {
-        setPhoneOtpError(data.message || 'Failed to send OTP.');
+        const errorMsg = data.message || 'Failed to send OTP.';
+        setPhoneOtpError(errorMsg);
+        setErrors(prev => ({ ...prev, general: errorMsg }));
       }
     } catch (err) {
       console.error(err);
       setPhoneOtpError('Error sending OTP. Please try again.');
+      setErrors(prev => ({ ...prev, general: 'Error sending OTP. Please try again.' }));
     } finally {
       setIsSendingPhoneOTP(false);
     }
@@ -522,11 +537,15 @@ export default function Register() {
       if (currentStep < steps.length - 1) {
         setCurrentStep(prev => prev + 1);
       } else {
-        const email = regType === 'student' ? studentForm.email : regType === 'trainer' ? trainerForm.email : companyForm.hrEmail;
-        if (!isPhoneVerified) {
-          sendPhoneOTP(email);
-        } else {
+        if (regType === 'trainer') {
           handleSubmit();
+        } else {
+          const email = regType === 'student' ? studentForm.email : companyForm.hrEmail;
+          if (!isPhoneVerified) {
+            sendPhoneOTP(email);
+          } else {
+            handleSubmit();
+          }
         }
       }
     }
@@ -619,7 +638,14 @@ export default function Register() {
         localStorage.setItem('user', JSON.stringify(storedUser));
         setIsSuccess(true);
       } else {
-        setErrors(data.errors || { general: data.message || 'Registration failed.' });
+        let mappedErrors = { ...data.errors };
+        if (regType === 'company') {
+          if (data.errors && data.errors.fullName) mappedErrors.companyName = data.errors.fullName;
+          if (data.errors && data.errors.email) mappedErrors.hrEmail = data.errors.email;
+          if (data.errors && data.errors.phone) mappedErrors.hrPhone = data.errors.phone;
+        }
+        
+        setErrors({ ...mappedErrors, general: data.message || 'Registration failed. Please check the form for errors.' });
       }
     } catch (err) {
       console.error(err);
@@ -1529,9 +1555,10 @@ export default function Register() {
                                   placeholder="Enter email address"
                                   value={trainerForm.email}
                                   onChange={(e) => handleTrainerChange('email', e.target.value)}
-                                  style={{ width: '100%', padding: '12px 14px', border: errors.email ? '1px solid #ef4444' : '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                                  style={{ width: '100%', padding: '12px 14px', border: (errors.email || (!showTrainerOTP && otpError)) ? '1px solid #ef4444' : '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
                                 />
                                 {errors.email && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.email}</span>}
+                                {(!showTrainerOTP && otpError) && <span style={{ color: '#ef4444', fontSize: '12.5px', marginTop: '4px', display: 'block' }}>{otpError}</span>}
                               </div>
                             </div>
                           )}

@@ -60,26 +60,28 @@ export default function Footer() {
           </button>
         </div>
 
-        <div className="footer-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '40px', paddingBottom: '40px' }}>
+        <div className="footer-content">
           <motion.div
             className="footer-section about"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <div className="footer-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img src="/logo.png" alt="MBK Technology Logo" style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', margin: 0 }}>MBK Technology</h2>
+            <div className="footer-logo-container">
+              <img src="/logo.png" alt="MBK Technology Logo" className="footer-logo-img" />
+              <h2 className="footer-brand-name">MBK Technology</h2>
             </div>
-            <p className="footer-description" style={{ fontSize: '13px', color: '#94A3B8', marginTop: '16px', lineHeight: '1.6' }}>
+            <p className="footer-description">
               IInd Floor, OM Shiva Towers, 259-B, Advaitha Ashram Rd, Fairlands, Salem, Tamil Nadu - 636004, India
             </p>
-            <p className="footer-description" style={{ fontSize: '13px', color: '#94A3B8', marginTop: '12px' }}>
-              📞 <a href="tel:+918807653965" style={{ color: '#F97316', textDecoration: 'none', fontWeight: 600 }}>+91 88076 53965</a>
-            </p>
-            <p className="footer-description" style={{ fontSize: '13px', color: '#94A3B8', marginTop: '6px' }}>
-              🌐 <a href="https://www.mbktechnologies.info" target="_blank" rel="noopener noreferrer" style={{ color: '#F97316', textDecoration: 'none', fontWeight: 600 }}>www.mbktechnologies.info</a>
-            </p>
+            <div className="footer-contact-info">
+              <p className="footer-contact-item">
+                <span className="contact-icon">📞</span> <a href="tel:+918807653965" className="contact-link">+91 88076 53965</a>
+              </p>
+              <p className="footer-contact-item">
+                <span className="contact-icon">🌐</span> <a href="https://www.mbktechnologies.info" target="_blank" rel="noopener noreferrer" className="contact-link">www.mbktechnologies.info</a>
+              </p>
+            </div>
           </motion.div>
 
           {footerSections.map((section, index) => (
@@ -91,17 +93,17 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ delay: (index + 1) * 0.1 }}
             >
-              <h3>{section.title}</h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <h3 className="footer-section-title">{section.title}</h3>
+              <ul className="footer-links-list">
                 {section.links.map((link, i) => (
-                  <li key={i} style={{ marginBottom: '10px' }}>
+                  <li key={i} className="footer-link-item">
                     {link.external ? (
-                      <a href={link.to} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: '#94A3B8', fontSize: '13.5px', transition: 'color 0.2s' }}>
-                        {link.label}
+                      <a href={link.to} target="_blank" rel="noopener noreferrer" className="footer-link">
+                        <span className="link-arrow">›</span> {link.label}
                       </a>
                     ) : (
-                      <Link to={link.to} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textDecoration: 'none', color: '#94A3B8', fontSize: '13.5px', transition: 'color 0.2s' }}>
-                        {link.label}
+                      <Link to={link.to} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="footer-link">
+                        <span className="link-arrow">›</span> {link.label}
                       </Link>
                     )}
                   </li>

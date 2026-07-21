@@ -1,4 +1,4 @@
-# Chemy LMS
+# MBK LMS
 
 Lightweight LMS (Learning Management System) used for development and demos. This repository contains a `frontend` (Vite + React) and a simple `backend` (Express) with JSON fallback storage.
 
