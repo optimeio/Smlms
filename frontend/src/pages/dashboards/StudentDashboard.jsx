@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Video, FileText, Bell, CheckCircle, GraduationCap, ChevronRight, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../state/useAuth';
 import { PremiumPage, PageHeader, GlassCard, PremiumStatCard, GradientButton, Badge, SectionTitle, EmptyState, P } from '../../components/PremiumDesignSystem';
+import ProfileCompletionWidget from '../../components/ProfileCompletionWidget';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -14,16 +15,35 @@ export default function StudentDashboard() {
       if (!user) return;
       try {
         setLoading(true);
-        const [coursesRes, liveRes] = await Promise.all([
+        const [coursesRes, companyCoursesRes, liveRes] = await Promise.all([
           fetch('/api/courses'),
+          fetch('/api/company-courses?status=approved'),
           fetch(`/api/live-classes?studentId=${user?._id || user?.id || user?.email}`)
         ]);
         const coursesData = await coursesRes.json();
+        const companyCoursesData = await companyCoursesRes.json();
         const liveData = await liveRes.json();
+        
+        let allCourses = [];
         if (coursesData.success) {
-          const matched = coursesData.courses.filter(c => user?.assignedCourses?.includes(c.title));
-          setAssignedCourses(matched);
+          allCourses = [...allCourses, ...coursesData.courses];
         }
+        if (companyCoursesData.success) {
+          allCourses = [...allCourses, ...companyCoursesData.courses];
+        }
+
+        const matched = allCourses.filter(c => user?.assignedCourses?.includes(c.title));
+        // Remove duplicates by title in case both DBs have the same course title
+        const uniqueMatched = [];
+        const seenTitles = new Set();
+        for (const course of matched) {
+          if (!seenTitles.has(course.title)) {
+            seenTitles.add(course.title);
+            uniqueMatched.push(course);
+          }
+        }
+        setAssignedCourses(uniqueMatched);
+
         if (liveData.success) setLiveClasses(liveData.liveClasses);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -46,6 +66,8 @@ export default function StudentDashboard() {
   return (
     <PremiumPage>
       <PageHeader title="Student Dashboard" emoji="👋" subtitle="Track your learning progress and stay on top of upcoming classes." />
+
+      <ProfileCompletionWidget />
 
       {/* Live Class Banner */}
       {liveClasses.length > 0 && (() => {
@@ -92,7 +114,9 @@ export default function StudentDashboard() {
           {loading ? <p style={{ color: P.inkMute }}>Loading...</p> : assignedCourses.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {assignedCourses.slice(0, 3).map((c, i) => (
-                <div key={c._id || c.id} style={{
+                <div key={c._id || c.id} 
+                  onClick={() => window.location.href = `/app/player/${c._id || c.id}`}
+                  style={{
                   display: 'flex', flexDirection: 'column', gap: 12, padding: 16,
                   background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
                   borderRadius: P.radiusMd, cursor: 'pointer',
@@ -126,14 +150,30 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                   
-                  {/* Mock Progress Bar */}
+                  {/* Dynamic Progress Bar */}
                   <div style={{ marginTop: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, fontWeight: 600, color: P.inkMute }}>
                       <span>Course Progress</span>
-                      <span style={{ color: P.blue }}>{45 + (i * 15)}%</span>
+                      <span style={{ color: P.blue }}>
+                        {(() => {
+                           const progressArr = user?.courseProgress?.[c._id || c.id] || [];
+                           const totalModules = c.modules?.length || 1;
+                           // Calculate percentage based on completed modules, fallback to 0
+                           const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
+                           return `${Math.min(pct, 100)}%`;
+                        })()}
+                      </span>
                     </div>
                     <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${45 + (i * 15)}%`, height: '100%', background: `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3 }} />
+                      <div style={{ 
+                        width: (() => {
+                           const progressArr = user?.courseProgress?.[c._id || c.id] || [];
+                           const totalModules = c.modules?.length || 1;
+                           const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
+                           return `${Math.min(pct, 100)}%`;
+                        })(), 
+                        height: '100%', background: `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3 
+                      }} />
                     </div>
                   </div>
                 </div>

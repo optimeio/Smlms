@@ -3,6 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, BookOpen, Users, Calendar, BarChart3, GraduationCap, Sparkles, X, PlusCircle, UserCheck } from 'lucide-react';
 import { useAuth } from '../../state/useAuth';
 import { PremiumPage, PageHeader, GlassCard, GradientButton, Badge, PremiumStatCard, P } from '../../components/PremiumDesignSystem';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+
+const employeeProgressData = [
+  { name: 'Week 1', completed: 20, inProgress: 45 },
+  { name: 'Week 2', completed: 35, inProgress: 40 },
+  { name: 'Week 3', completed: 50, inProgress: 35 },
+  { name: 'Week 4', completed: 75, inProgress: 20 },
+];
+const COLORS = ['#6366F1', '#10B981'];
 
 export default function SpocDashboard() {
   const { user } = useAuth();
@@ -258,23 +267,38 @@ export default function SpocDashboard() {
         ))}
       </div>
 
+
+
       {/* Main Grid Content */}
-      <div className="mbk-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      <div className="mbk-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
         {/* Employee Progress */}
-        <GlassCard>
+        <GlassCard style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
             <div style={{ width: 42, height: 42, borderRadius: 14, background: 'linear-gradient(135deg, #5B5CFF, #7C5CFF)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
               <BarChart3 size={20} />
             </div>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: P.font }}>Employee Progress</h3>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: P.font }}>Employee Progress Trends</h3>
           </div>
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: P.inkMute, fontSize: 14 }}>
-            No training data available.
+          <div style={{ width: '100%', height: 300, marginTop: 24 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={employeeProgressData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={P.border} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: P.inkMute, fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: P.inkMute, fontSize: 12 }} dx={-10} />
+                <RechartsTooltip 
+                  contentStyle={{ borderRadius: 12, border: `1px solid ${P.border}`, boxShadow: '0 10px 25px rgba(0,0,0,0.05)', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)' }}
+                  itemStyle={{ fontWeight: 600 }}
+                  cursor={{ fill: 'rgba(99,102,241,0.05)' }}
+                />
+                <Bar dataKey="completed" name="Completed Modules" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="inProgress" name="In Progress" fill="#6366F1" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <GradientButton variant="outline" style={{ width: '100%', borderStyle: 'dashed', marginTop: 16 }}>
-            View Detailed Analytics
-          </GradientButton>
         </GlassCard>
+      </div>
+
+      <div className="mbk-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
         {/* Batch Status */}
         <GlassCard>

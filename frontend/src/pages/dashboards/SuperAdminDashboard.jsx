@@ -10,6 +10,25 @@ import {
   A,
   AdminBadge
 } from '../../components/AdminDesignSystem';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const chartData = [
+  { name: 'Jan', revenue: 4000, users: 240 },
+  { name: 'Feb', revenue: 3000, users: 139 },
+  { name: 'Mar', revenue: 2000, users: 980 },
+  { name: 'Apr', revenue: 2780, users: 390 },
+  { name: 'May', revenue: 1890, users: 480 },
+  { name: 'Jun', revenue: 2390, users: 380 },
+  { name: 'Jul', revenue: 3490, users: 430 },
+];
+
+const pieData = [
+  { name: 'Engineering', value: 400 },
+  { name: 'Marketing', value: 300 },
+  { name: 'Design', value: 300 },
+  { name: 'Data Science', value: 200 },
+];
+const COLORS = ['#6366F1', '#3B82F6', '#10B981', '#F59E0B'];
 
 const stats = [
   { label: 'Total Users', value: '584', icon: <Users size={24} />, gradientFrom: '#6366F1', gradientTo: '#8B5CF6', trend: '12%', trendUp: true },
@@ -27,6 +46,8 @@ const metrics = [
 
 export default function SuperAdminDashboard() {
   const [requests, setRequests] = useState([]);
+  const [pendingCourses, setPendingCourses] = useState([]);
+  const [notification, setNotification] = useState('');
 
   useEffect(() => {
     fetch('/api/requests')
@@ -37,10 +58,41 @@ export default function SuperAdminDashboard() {
         }
       })
       .catch(err => console.error(err));
+
+    fetch('/api/company-courses?status=pending')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setPendingCourses(data.courses);
+        }
+      })
+      .catch(err => console.error(err));
   }, []);
+
+  const handleApproveCourse = async (id) => {
+    try {
+      const res = await fetch(`/api/company-courses/${id}/approve`, { method: 'PUT' });
+      const data = await res.json();
+      if (data.success) {
+        setPendingCourses(prev => prev.filter(c => (c._id || c.id) !== id));
+        setNotification('Course approved successfully');
+        setTimeout(() => setNotification(''), 4000);
+      } else {
+        alert('Failed to approve course');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <AdminPage>
+      {notification && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', padding: '16px 24px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 10px 25px rgba(16,185,129,0.4)', fontWeight: 600 }}>
+          <CheckSquare size={24} />
+          {notification}
+        </div>
+      )}
       {/* Premium Header Section */}
       <AdminPageHeader 
         title="Super Admin Dashboard"
@@ -72,6 +124,75 @@ export default function SuperAdminDashboard() {
             trendUp={item.trendUp}
           />
         ))}
+      </div>
+
+
+
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, marginBottom: 32 }}>
+        <EnterpriseCard hover={false} style={{ padding: 24 }}>
+          <h3 style={{ margin: '0 0 24px', fontSize: 18, fontWeight: 700, color: A.ink, fontFamily: A.font }}>Revenue & Enrollment Trends</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={A.border} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: A.inkMute, fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: A.inkMute, fontSize: 12 }} dx={-10} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: 12, border: `1px solid ${A.border}`, boxShadow: '0 10px 25px rgba(0,0,0,0.05)', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)' }}
+                  itemStyle={{ fontWeight: 600 }}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#6366F1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area type="monotone" dataKey="users" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </EnterpriseCard>
+
+        <EnterpriseCard hover={false} style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: A.ink, fontFamily: A.font, alignSelf: 'flex-start' }}>Course Categories</h3>
+          <div style={{ width: '100%', height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ borderRadius: 12, border: `1px solid ${A.border}`, boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}
+                  itemStyle={{ fontWeight: 600 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 16 }}>
+            {pieData.map((entry, index) => (
+              <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: A.inkSoft, fontWeight: 600 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: COLORS[index % COLORS.length] }}></div>
+                {entry.name}
+              </div>
+            ))}
+          </div>
+        </EnterpriseCard>
       </div>
 
       <div className="mbk-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32 }}>
@@ -118,6 +239,49 @@ export default function SuperAdminDashboard() {
                       <button style={{ background: 'transparent', border: 'none', color: A.inkMute, cursor: 'pointer' }}>
                         <MoreVertical size={18} />
                       </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </EnterpriseCard>
+
+          {/* Pending Course Approvals */}
+          <EnterpriseCard hover={false}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EFF6FF', color: A.blue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: A.ink, fontFamily: A.font }}>Course Approvals</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: A.inkSoft }}>Pending courses proposed by companies</p>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {pendingCourses.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: A.inkMute, fontSize: 14 }}>
+                  No pending course approvals right now.
+                </div>
+              ) : (
+                pendingCourses.map(course => (
+                  <div key={course._id || course.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, border: `1px solid ${A.border}`, borderRadius: A.radiusSm, background: '#fff', transition: 'all 0.2s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 8, background: '#F1F5F9', backgroundImage: course.image ? `url(${course.image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: A.inkSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
+                        {!course.image && course.title.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>{course.title}</span>
+                          <AdminBadge color={A.orange}>Pending</AdminBadge>
+                        </div>
+                        <div style={{ fontSize: 13, color: A.inkSoft }}>Proposed by <strong style={{ color: A.ink }}>{course.companyName}</strong></div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <AdminButton variant="blue" onClick={() => handleApproveCourse(course._id || course.id)}>Approve</AdminButton>
                     </div>
                   </div>
                 ))

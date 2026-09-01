@@ -55,6 +55,7 @@ const roleNavigation = {
     { key: 'spoc', label: 'SPOC', path: '/app/d/spoc' },
     { key: 'job-offers', label: 'Job Offers', path: '/app/d/job-offers' },
     { key: 'courses', label: 'Course Management', path: '/app/d/courses' },
+    { key: 'enrolled', label: 'Enrolled Courses', path: '/app/d/enrolled' },
     { key: 'categories', label: 'Categories', path: '/app/d/categories' },
     { key: 'scheduling', label: 'Scheduling', path: '/app/d/scheduling' },
     { key: 'live', label: 'Live Classes', path: '/app/d/live' },

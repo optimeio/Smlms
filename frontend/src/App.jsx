@@ -27,6 +27,7 @@ const StudentDashboard = lazy(() => import('./pages/dashboards/StudentDashboard'
 const StudentJobOffers = lazy(() => import('./pages/dashboards/StudentJobOffers'));
 const StudentSettings = lazy(() => import('./pages/dashboards/StudentSettings'));
 const StudentCourses = lazy(() => import('./pages/dashboards/StudentCourses'));
+const CoursePlayer = lazy(() => import('./pages/dashboards/CoursePlayer'));
 const StudentLiveClasses = lazy(() => import('./pages/dashboards/StudentLiveClasses'));
 const StudentCertificates = lazy(() => import('./pages/dashboards/StudentCertificates'));
 const TrainerDashboard = lazy(() => import('./pages/dashboards/TrainerDashboard'));
@@ -56,6 +57,7 @@ const TrainerNotifications = lazy(() => import('./pages/dashboards/TrainerNotifi
 const TrainerSettings = lazy(() => import('./pages/dashboards/TrainerSettings'));
 
 const AdminUsers = lazy(() => import('./pages/dashboards/AdminUsers'));
+const AdminEnrolledCourses = lazy(() => import('./pages/dashboards/AdminEnrolledCourses'));
 const AdminSpoc = lazy(() => import('./pages/dashboards/AdminSpoc'));
 const AdminCourses = lazy(() => import('./pages/dashboards/AdminCourses'));
 const AdminJobOffers = lazy(() => import('./pages/dashboards/AdminJobOffers'));
@@ -172,6 +174,7 @@ export default function App() {
             <Route path="settings" element={<StudentSettings />} />
             <Route path="*" element={<PlaceholderPage />} />
           </Route>
+          <Route path="player/:courseId" element={<CoursePlayer />} />
           <Route path="b">
             <Route index element={<TrainerDashboard />} />
             <Route path="dashboard" element={<TrainerDashboard />} />
@@ -212,8 +215,9 @@ export default function App() {
             <Route path="students" element={<AdminUserDirectory role="student" title="Student Directory" subtitle="Browse student records, enrollment status, and academic details." />} />
             <Route path="trainers" element={<AdminUserDirectory role="trainer" title="Trainer Directory" subtitle="Browse trainer profiles, expertise, and contact information." />} />
             <Route path="spoc" element={<AdminSpoc />} />
-            <Route path="job-offers" element={<AdminJobOffers />} />
             <Route path="courses" element={<AdminCourses />} />
+            <Route path="enrolled" element={<AdminEnrolledCourses />} />
+            <Route path="job-offers" element={<AdminJobOffers />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="scheduling" element={<AdminScheduling />} />
             <Route path="live" element={<AdminLiveClasses />} />

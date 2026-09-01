@@ -4,6 +4,7 @@ import '../styles/AdminPortal.css';
 import '../styles/Dashboard.css';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../utils/cropImage';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 const API = '/api/admin';
 import AdminLiveClasses from './dashboards/AdminLiveClasses';
@@ -169,6 +170,9 @@ export default function AdminPortal() {
   const [activityLogs, setActivityLogs] = useState([]);
 
   // Courses state
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState([]);
   const [courses, setCourses] = useState([]);
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -222,6 +226,10 @@ export default function AdminPortal() {
   const [assignCollege, setAssignCollege] = useState('');
   const [assignDepartment, setAssignDepartment] = useState('');
   const [registeredUsers, setRegisteredUsers] = useState([]);
+  
+  // Enrolled Users Modal State
+  const [showEnrolledModal, setShowEnrolledModal] = useState(false);
+  const [enrolledActiveTab, setEnrolledActiveTab] = useState('student');
 
   const fetchRegisteredUsers = async () => {
     try {
@@ -507,6 +515,18 @@ export default function AdminPortal() {
     }
   };
 
+  const fetchAnalyticsData = async () => {
+    try {
+      const res = await fetch('/api/admin/analytics');
+      const data = await res.json();
+      if (data.success) {
+        setAnalyticsData(data.analytics || []);
+      }
+    } catch (err) {
+      console.error('Error fetching analytics data:', err);
+    }
+  };
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user || (user.email !== 'admin@smgroups.com' && user.email !== 'thesmgroups@gmail.com')) {
@@ -516,6 +536,7 @@ export default function AdminPortal() {
       fetchCourses();
       fetchRegisteredUsers();
       fetchSystemRequests();
+      fetchAnalyticsData();
       if (activeTab === 'Activity Logs') {
         fetchActivityLogs();
       }
@@ -1024,44 +1045,25 @@ export default function AdminPortal() {
                     </div>
                   </div>
 
-                  <svg viewBox={`0 0 ${chartW} ${chartH}`} style={{ width: '100%', height: '220px' }}>
-                    <defs>
-                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(59,130,246,0.2)" />
-                        <stop offset="100%" stopColor="rgba(59,130,246,0)" />
-                      </linearGradient>
-                    </defs>
-                    {/* Grid lines */}
-                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
-                      const y = chartPadY + innerH * (1 - pct);
-                      return (
-                        <g key={i}>
-                          <line x1={chartPadX} y1={y} x2={chartW - chartPadX} y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 4" />
-                          <text x={chartPadX - 8} y={y + 4} textAnchor="end" style={{ fontSize: '10px', fill: '#94A3B8', fontWeight: 600 }}>
-                            {Math.round(chartMax * pct)}
-                          </text>
-                        </g>
-                      );
-                    })}
-                    {/* X axis labels */}
-                    {chartLabels.map((label, i) => (
-                      <text key={i} x={chartPadX + (i / (chartLabels.length - 1)) * innerW} y={chartH - 4}
-                        textAnchor="middle" style={{ fontSize: '11px', fill: '#94A3B8', fontWeight: 600 }}>
-                        {label}
-                      </text>
-                    ))}
-                    {/* Area fill */}
-                    <path d={areaPath} fill="url(#areaGrad)" opacity="0.8" />
-                    {/* Line */}
-                    <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="admin-chart-line" />
-                    {/* Data dots */}
-                    {chartPoints.map((p, i) => (
-                      <g key={i}>
-                        <circle cx={p.x} cy={p.y} r="4" fill="#FFFFFF" stroke="#3B82F6" strokeWidth="2.5" />
-                        <title>{`${chartLabels[i]}: ${chartData[i]}`}</title>
-                      </g>
-                    ))}
-                  </svg>
+                  <div style={{ width: '100%', height: 240, marginTop: 16 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={analyticsData.length > 0 ? analyticsData : chartData.map((v, i) => ({ name: chartLabels[i], revenue: v * 100, students: v }))}>
+                        <defs>
+                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                        <RechartsTooltip 
+                          contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 600 }}
+                        />
+                        <Area type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* ─── Premium Activity Timeline ─── */}
@@ -1880,6 +1882,236 @@ export default function AdminPortal() {
     );
   };
 
+  const renderEnrolledUsersModal = () => {
+    // Filter users based on role and ensure they have at least one enrolled course
+    const enrolledUsers = registeredUsers.filter(u => {
+      const roleMatches = (u.role || 'student').toLowerCase() === enrolledActiveTab;
+      const hasCourses = u.purchasedCourses && u.purchasedCourses.length > 0;
+      return roleMatches && hasCourses;
+    });
+
+    const displayedUsers = enrolledUsers.filter(u => 
+      (u.fullName || u.companyName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const getCourseTitle = (id) => {
+      const c = courses.find(course => course._id === id || course.id === id || course.title === id);
+      return c ? c.title : id;
+    };
+
+    return (
+      <div className="modal-overlay" style={{ 
+        zIndex: 9999, 
+        backgroundColor: 'rgba(15, 23, 42, 0.4)', 
+        backdropFilter: 'blur(8px)',
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div className="modal-content" style={{ 
+          maxWidth: '850px', 
+          width: '100%', 
+          maxHeight: '85vh', 
+          overflowY: 'auto',
+          backgroundColor: '#ffffff',
+          borderRadius: '24px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.5)',
+          padding: '32px',
+          position: 'relative'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div>
+              <h3 style={{ 
+                margin: '0 0 8px 0', 
+                fontSize: '28px', 
+                fontWeight: 800, 
+                background: 'linear-gradient(135deg, #005F7A 0%, #0284c7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                Enrolled {enrolledActiveTab === 'student' ? 'Students' : 'Trainers'}
+              </h3>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>Manage and view course enrollments in real-time</p>
+            </div>
+            <button 
+              onClick={() => setShowEnrolledModal(false)} 
+              style={{ 
+                border: 'none', 
+                background: '#f1f5f9', 
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px', 
+                cursor: 'pointer', 
+                color: '#64748b',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Controls: Tabs & Search */}
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
+            <div style={{ 
+              display: 'flex', 
+              background: '#f8fafc', 
+              padding: '6px', 
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <button
+                onClick={() => setEnrolledActiveTab('student')}
+                style={{
+                  padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
+                  background: enrolledActiveTab === 'student' ? '#ffffff' : 'transparent',
+                  color: enrolledActiveTab === 'student' ? '#0f172a' : '#64748b',
+                  boxShadow: enrolledActiveTab === 'student' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🎓 Students
+              </button>
+              <button
+                onClick={() => setEnrolledActiveTab('trainer')}
+                style={{
+                  padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
+                  background: enrolledActiveTab === 'trainer' ? '#ffffff' : 'transparent',
+                  color: enrolledActiveTab === 'trainer' ? '#0f172a' : '#64748b',
+                  boxShadow: enrolledActiveTab === 'trainer' ? '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                👨‍🏫 Trainers
+              </button>
+            </div>
+
+            <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
+              <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%', padding: '12px 16px 12px 44px', borderRadius: '12px', border: '1px solid #cbd5e1',
+                  fontSize: '15px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s',
+                  backgroundColor: '#f8fafc'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#005F7A'}
+                onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+              />
+            </div>
+          </div>
+
+          {/* User List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {displayedUsers.length > 0 ? (
+              displayedUsers.map((u, idx) => {
+                const name = u.fullName || u.companyName || 'Unknown';
+                const initial = name.charAt(0).toUpperCase();
+                return (
+                  <div key={idx} style={{ 
+                    padding: '24px', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '16px', 
+                    background: 'linear-gradient(to right, #ffffff, #f8fafc)',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.05)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.02)'; }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                      
+                      {/* Avatar & Info */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ 
+                          width: '56px', height: '56px', borderRadius: '50%', 
+                          background: 'linear-gradient(135deg, #0284c7 0%, #005F7A 100%)',
+                          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '24px', fontWeight: 800, boxShadow: '0 4px 10px rgba(2, 132, 199, 0.3)'
+                        }}>
+                          {initial}
+                        </div>
+                        <div>
+                          <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>{name}</h4>
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '13px', color: '#64748b' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              ✉️ {u.email}
+                            </span>
+                            { (u.phone || u.hrPhone) && (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                📱 {u.phone || u.hrPhone}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Course Count Badge */}
+                      <div style={{ 
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                        color: '#ffffff', padding: '6px 14px', borderRadius: '30px', 
+                        fontSize: '13px', fontWeight: 700, boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)',
+                        display: 'flex', alignItems: 'center', gap: '6px'
+                      }}>
+                        🎯 {u.purchasedCourses.length} Enrolled
+                      </div>
+                    </div>
+                    
+                    {/* Course Tags */}
+                    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1' }}>
+                      <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Active Programs
+                      </h5>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        {u.purchasedCourses.map((courseId, cIdx) => (
+                          <div key={cIdx} style={{ 
+                            background: '#ffffff', 
+                            padding: '8px 16px', 
+                            borderRadius: '10px', 
+                            fontSize: '13px', 
+                            fontWeight: 600, 
+                            color: '#005F7A', 
+                            border: '1px solid #e0f2fe',
+                            boxShadow: '0 2px 4px rgba(0, 95, 122, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            <span style={{ color: '#0ea5e9' }}>❖</span> {getCourseTitle(courseId)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ 
+                textAlign: 'center', padding: '60px 20px', color: '#64748b', 
+                background: '#f8fafc', borderRadius: '16px', border: '2px dashed #cbd5e1' 
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📭</div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#0f172a', fontSize: '18px' }}>No Enrollments Found</h4>
+                <p style={{ margin: 0, fontSize: '14px' }}>There are no {enrolledActiveTab}s matching your search criteria.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderCoursesTab = () => {
     if (selectedCourseForContent) {
       return renderCourseContentDetailsPage();
@@ -1899,18 +2131,29 @@ export default function AdminPortal() {
             subtitle="Create, edit, view and manage all academic training programs."
             emoji="📚"
           />
-          <AdminButton 
-            variant="blue"
-            onClick={() => {
-              setCourseForm({ 
-                id: null, title: '', name: '', originalPrice: '', price: '', description: '', image: '', imageFile: '', ppt: '', pptFile: '', video: '', videoFile: '', programType: 'Student Development Program',
-                totalDurationHours: '', trainingDays: '', startDate: '', dailyStartTime: ''
-              });
-              setShowCourseModal(true);
-            }}
-          >
-            + Add New Course
-          </AdminButton>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <AdminButton 
+              variant="outline"
+              onClick={() => {
+                fetchRegisteredUsers();
+                setShowEnrolledModal(true);
+              }}
+            >
+              View Enrolled Users
+            </AdminButton>
+            <AdminButton 
+              variant="blue"
+              onClick={() => {
+                setCourseForm({ 
+                  id: null, title: '', name: '', originalPrice: '', price: '', description: '', image: '', imageFile: '', ppt: '', pptFile: '', video: '', videoFile: '', programType: 'Student Development Program',
+                  totalDurationHours: '', trainingDays: '', startDate: '', dailyStartTime: ''
+                });
+                setShowCourseModal(true);
+              }}
+            >
+              + Add New Course
+            </AdminButton>
+          </div>
         </div>
 
         <div style={{
@@ -3187,6 +3430,7 @@ export default function AdminPortal() {
           </div>
         </div>
       )}
+      {showEnrolledModal && renderEnrolledUsersModal()}
     </div>
   );
 }

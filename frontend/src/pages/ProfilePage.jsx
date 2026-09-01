@@ -137,7 +137,7 @@ export default function ProfilePage() {
       skills: Array.isArray(user?.skills) && user.skills.length > 0 ? user.skills : defaultSkills,
       about: user?.about || (isCompany ? 'Corporate partner managing employee training.' : (isTrainer ? 'Experienced technical trainer.' : 'Passionate about learning and solving problems. Always eager to grow.')),
       assignedCourses: Array.isArray(user?.assignedCourses) ? user.assignedCourses : [],
-      profilePhoto: user?.profilePhoto || 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200&h=200&fit=crop',
+      profilePhoto: user?.profilePhoto || '',
       knowledge: user?.knowledge || '',
       experience: user?.experience || (isTrainer ? '5' : ''),
       expertise: user?.expertise || (isTrainer ? 'Web Development' : ''),
@@ -175,6 +175,8 @@ export default function ProfilePage() {
 
   const isCompany = profile.role?.toLowerCase() === 'company';
   const isTrainer = profile.role?.toLowerCase() === 'trainer';
+  
+  const initials = (profile.fullName || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   const inputStyle = {
     width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${P.border}`,
@@ -235,12 +237,21 @@ export default function ProfilePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 24, minWidth: 0, position: 'relative', zIndex: 1 }}>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', inset: -4, background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`, borderRadius: '50%', opacity: 0.5, filter: 'blur(8px)' }} />
-            <img 
-              style={{ width: 110, height: 110, borderRadius: '50%', border: '4px solid #fff', objectFit: 'cover', background: '#fff', position: 'relative', zIndex: 1, cursor: 'zoom-in' }} 
-              src={profile.profilePhoto} 
-              alt="Profile" 
-              onClick={() => setShowPhotoViewer(true)}
-            />
+            {profile.profilePhoto ? (
+              <img 
+                style={{ width: 110, height: 110, borderRadius: '50%', border: '4px solid #fff', objectFit: 'cover', background: '#fff', position: 'relative', zIndex: 1, cursor: 'zoom-in' }} 
+                src={profile.profilePhoto} 
+                alt="Profile" 
+                onClick={() => setShowPhotoViewer(true)}
+              />
+            ) : (
+              <div 
+                style={{ width: 110, height: 110, borderRadius: '50%', border: '4px solid #fff', background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`, position: 'relative', zIndex: 1, cursor: 'zoom-in', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 36, fontWeight: 900 }}
+                onClick={() => setShowPhotoViewer(true)}
+              >
+                {initials}
+              </div>
+            )}
             <div style={{ position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, background: P.green, borderRadius: '50%', border: '4px solid #fff', zIndex: 2 }} />
           </div>
           
@@ -282,7 +293,7 @@ export default function ProfilePage() {
               expertise: profile.expertise,
               experience: profile.experience,
               linkedin: profile.linkedin,
-              profilePhoto: profile.profilePhoto !== 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200&h=200&fit=crop' ? profile.profilePhoto : ''
+              profilePhoto: profile.profilePhoto
             });
             setIsEditing(true);
           }} variant="outline">
@@ -362,53 +373,6 @@ export default function ProfilePage() {
         </GlassCard>
       </div>
 
-      <GlassCard style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-        {isCompany ? (
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: P.font }}>
-              Company Platform Overview
-            </h3>
-            <p style={{ margin: 0, fontSize: 14, color: P.inkSoft, lineHeight: 1.6 }}>
-              You are currently managing <strong style={{ color: P.ink }}>{user?.assignedCourses?.length || 0}</strong> active courses, <strong style={{ color: P.ink }}>{user?.assignedTrainers?.length || 0}</strong> trainers, and <strong style={{ color: P.ink }}>{user?.assignedStudents?.length || 0}</strong> students on the platform.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
-              <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="40" cy="40" r={radius} fill="none" stroke="rgba(91,92,255,0.1)" strokeWidth="8" />
-                <motion.circle
-                  initial={{ strokeDashoffset: circumference }}
-                  animate={{ strokeDashoffset: offset }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                  cx="40"
-                  cy="40"
-                  r={radius}
-                  fill="none"
-                  stroke={P.primary}
-                  strokeWidth="8"
-                  strokeDasharray={circumference}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: P.ink }}>
-                {completion}%
-              </div>
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <h3 style={{ margin: '0 0 6px 0', fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: P.font }}>
-                Profile Completion
-              </h3>
-              <p style={{ margin: 0, fontSize: 14, color: P.inkSoft, lineHeight: 1.6 }}>
-                You're almost there! Complete your profile to get better recommendations and opportunities.
-              </p>
-            </div>
-            <GradientButton variant="primary">
-              Complete Profile
-            </GradientButton>
-          </>
-        )}
-      </GlassCard>
 
       {/* Cropper Modal */}
       <AnimatePresence>
@@ -612,17 +576,30 @@ export default function ProfilePage() {
                 borderRadius: '50%', boxShadow: '0 30px 80px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.1)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
               }}>
-                <img 
-                  src={profile.profilePhoto} 
-                  alt="Profile Full View" 
-                  style={{ 
+                {profile.profilePhoto ? (
+                  <img 
+                    src={profile.profilePhoto} 
+                    alt="Profile Full View" 
+                    style={{ 
+                      width: '340px', height: '340px', 
+                      borderRadius: '50%', objectFit: 'cover',
+                      border: '4px solid rgba(255,255,255,0.8)',
+                      boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
+                      background: '#fff'
+                    }} 
+                  />
+                ) : (
+                  <div style={{
                     width: '340px', height: '340px', 
-                    borderRadius: '50%', objectFit: 'cover',
-                    border: '4px solid rgba(255,255,255,0.8)',
+                    borderRadius: '50%', border: '4px solid rgba(255,255,255,0.8)',
                     boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
-                    background: '#fff'
-                  }} 
-                />
+                    background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: 120, fontWeight: 900
+                  }}>
+                    {initials}
+                  </div>
+                )}
                 
                 {/* Floating User Info Plate - absolute positioned at bottom */}
                 <div style={{

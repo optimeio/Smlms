@@ -31,7 +31,7 @@ function SidebarContent({ mainItems, settingsItem, logoutItem, activeTab, onTabC
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "32px 28px 24px" }}>
         <div style={{ 
           width: 44, height: 44, borderRadius: 14, 
-          background: '#fff', 
+          background: P.surface, 
           display: 'flex', alignItems: 'center', justifyContent: 'center', 
           boxShadow: `0 8px 24px rgba(91,92,255,0.1)`,
           padding: 2,
@@ -191,7 +191,7 @@ export default function AppLayout({
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               onClick={e => e.stopPropagation()}
-              style={{ width: 280, height: '100vh', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', borderRight: `1px solid ${P.border}` }}
+              style={{ width: 280, height: '100vh', background: 'var(--glass-bg, rgba(255,255,255,0.85))', backdropFilter: 'blur(20px)', borderRight: `1px solid ${P.border}` }}
             >
               <SidebarContent mainItems={mainItems} settingsItem={settingsItem} logoutItem={logoutItem} activeTab={activeTab} onTabChange={onTabChange} onSignOut={triggerSignOut} onClose={() => setIsMobileOpen(false)} />
             </motion.div>
@@ -202,7 +202,7 @@ export default function AppLayout({
       {/* Desktop Sidebar */}
       <aside className="mbk-sidebar-desktop" style={{
         width: 280, height: '100vh', flexShrink: 0,
-        background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)',
+        background: 'var(--glass-bg, rgba(255,255,255,0.6))', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)',
         borderRight: `1px solid ${P.border}`, zIndex: 50
       }}>
         <SidebarContent mainItems={mainItems} settingsItem={settingsItem} logoutItem={logoutItem} activeTab={activeTab} onTabChange={onTabChange} onSignOut={triggerSignOut} />
@@ -256,7 +256,7 @@ export default function AppLayout({
               </motion.div>
               <AnimatePresence>
                 {isMailOpen && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} style={{ position: 'absolute', top: '100%', right: -60, marginTop: 12, width: 320, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderRadius: P.radiusMd, border: `1px solid ${P.border}`, boxShadow: P.shadowHover, zIndex: 100, overflow: 'hidden' }}>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} style={{ position: 'absolute', top: '100%', right: -60, marginTop: 12, width: 320, background: 'var(--glass-bg, rgba(255,255,255,0.95))', backdropFilter: 'blur(20px)', borderRadius: P.radiusMd, border: `1px solid ${P.border}`, boxShadow: P.shadowHover, zIndex: 100, overflow: 'hidden' }}>
                     <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: P.ink }}>Messages</h4>
                       <span style={{ fontSize: 12, color: P.blue, fontWeight: 600, cursor: 'pointer' }}>Mark all read</span>
@@ -286,7 +286,7 @@ export default function AppLayout({
               </motion.div>
               <AnimatePresence>
                 {isNotifOpen && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} style={{ position: 'absolute', top: '100%', right: -20, marginTop: 12, width: 320, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderRadius: P.radiusMd, border: `1px solid ${P.border}`, boxShadow: P.shadowHover, zIndex: 100, overflow: 'hidden' }}>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} style={{ position: 'absolute', top: '100%', right: -20, marginTop: 12, width: 320, background: 'var(--glass-bg, rgba(255,255,255,0.95))', backdropFilter: 'blur(20px)', borderRadius: P.radiusMd, border: `1px solid ${P.border}`, boxShadow: P.shadowHover, zIndex: 100, overflow: 'hidden' }}>
                     <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: P.ink }}>Notifications</h4>
                       <span style={{ fontSize: 12, color: P.blue, fontWeight: 600, cursor: 'pointer' }}>Clear all</span>
@@ -345,7 +345,7 @@ export default function AppLayout({
                     transition={{ duration: 0.2 }}
                     style={{
                       position: 'absolute', top: 'calc(100% + 12px)', right: 0,
-                      background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
+                      background: 'var(--glass-bg, rgba(255,255,255,0.95))', backdropFilter: 'blur(20px)',
                       borderRadius: P.radiusSm, border: `1px solid ${P.border}`,
                       boxShadow: P.shadowHover, width: 200, zIndex: 100, overflow: 'hidden', padding: 8
                     }}
@@ -355,8 +355,8 @@ export default function AppLayout({
                       <div style={{ fontSize: 12, color: P.inkMute, fontWeight: 500 }}>{user.email || 'user@example.com'}</div>
                     </div>
                     {[
-                      { icon: User, label: 'My Profile', action: () => onTabChange('Profile') },
-                      { icon: Settings, label: 'Settings', action: () => onTabChange('Settings') },
+                      { icon: User, label: 'My Profile', action: () => { const profileItem = sidebarItems.find(item => item.name === 'Profile'); if (profileItem && profileItem.action) profileItem.action(); else onTabChange('Profile'); } },
+                      { icon: Settings, label: 'Settings', action: () => { const settingsItem = sidebarItems.find(item => item.name === 'Settings'); if (settingsItem && settingsItem.action) settingsItem.action(); else onTabChange('Settings'); } },
                       { icon: LogOut, label: 'Sign Out', action: triggerSignOut, color: P.red }
                     ].map((item, idx) => (
                       <motion.div
@@ -402,7 +402,7 @@ export default function AppLayout({
             <motion.div
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
               style={{
-                background: '#fff', borderRadius: P.radius, padding: 32,
+                background: P.surface, borderRadius: P.radius, padding: 32,
                 width: '100%', maxWidth: 400, boxShadow: P.shadowHover,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'
               }}
@@ -476,16 +476,27 @@ export default function AppLayout({
                 borderRadius: 32, boxShadow: '0 30px 70px rgba(0,0,0,0.4)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16
               }}>
-                <img 
-                  src={user.profilePhoto || 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=500&h=500&fit=crop'} 
-                  alt="Profile Full View" 
-                  style={{ 
-                    maxWidth: '80vw', maxHeight: '65vh', 
-                    borderRadius: 22, objectFit: 'contain',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-                  }} 
-                />
+                {user.profilePhoto ? (
+                  <img 
+                    src={user.profilePhoto} 
+                    alt="Profile Full View" 
+                    style={{ 
+                      maxWidth: '80vw', maxHeight: '65vh', 
+                      borderRadius: 22, objectFit: 'contain',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+                    }} 
+                  />
+                ) : (
+                  <div style={{
+                    width: 200, height: 200, borderRadius: 22,
+                    background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: 64, fontWeight: 900
+                  }}>
+                    {initials}
+                  </div>
+                )}
                 
                 {/* Floating User Info Plate */}
                 <div style={{

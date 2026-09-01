@@ -3,10 +3,99 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../state/useAuth';
 import '../styles/Auth.css';
+
+// Component to render photo/logo upload fields
+const PhotoUploadComponent = ({ formType, fileVal, setFileFn, labelText = 'Upload Photo', fieldName = 'photo', fallbackInitial, error }) => {
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (!fileVal) {
+      setPreviewUrl(null);
+      return;
+    }
+    try {
+      const objectUrl = URL.createObjectURL(fileVal);
+      setPreviewUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error("Error creating object URL", err);
+      setPreviewUrl(null);
+    }
+  }, [fileVal]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+      <div style={{
+        width: '90px',
+        height: '90px',
+        borderRadius: '50%',
+        border: error ? '2px dashed #ef4444' : '2px dashed #E5E7EB',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F9FAFB',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Preview"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : fallbackInitial ? (
+          <div style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#FF6B00',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '36px',
+            fontWeight: 800
+          }}>
+            {fallbackInitial.trim().charAt(0).toUpperCase()}
+          </div>
+        ) : (
+          <span style={{ fontSize: '32px', color: '#9CA3AF' }}>👤</span>
+        )}
+      </div>
+      <label style={{
+        cursor: 'pointer',
+        padding: '6px 16px',
+        borderRadius: '20px',
+        border: '1px solid #E5E7EB',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: '#4B5563',
+        backgroundColor: '#FFFFFF',
+        textAlign: 'center'
+      }}>
+        {labelText}
+        <input
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              setFileFn(e.target.files[0]);
+            }
+          }}
+        />
+      </label>
+      {error && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{error}</span>}
+      <span style={{ fontSize: '10px', color: '#9CA3AF' }}>JPG, PNG (Max. 2MB)</span>
+    </div>
+  );
+};
+
 
 export default function Register() {
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type') || ''; 
   const [regType, setRegType] = useState(typeParam || 'student');
@@ -635,7 +724,7 @@ export default function Register() {
           role: payload.role,
           isApproved: false
         };
-        localStorage.setItem('user', JSON.stringify(storedUser));
+        updateUser(storedUser);
         setIsSuccess(true);
       } else {
         let mappedErrors = { ...data.errors };
@@ -730,74 +819,7 @@ export default function Register() {
     doc.save(`${nameStr}_Resume.pdf`);
   };
 
-  // Helper to render photo/logo upload fields
-  const renderPhotoUpload = (formType, fileVal, setFileFn, labelText = 'Upload Photo', fieldName = 'photo') => {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-        <div style={{
-          width: '90px',
-          height: '90px',
-          borderRadius: '50%',
-          border: errors[fieldName] ? '2px dashed #ef4444' : '2px dashed #E5E7EB',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F9FAFB',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          {fileVal ? (
-            <img
-              src={URL.createObjectURL(fileVal)}
-              alt="Preview"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : formType === 'student' && studentForm.fullName ? (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: '#FF6B00',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '36px',
-              fontWeight: 800
-            }}>
-              {studentForm.fullName.trim().charAt(0).toUpperCase()}
-            </div>
-          ) : (
-            <span style={{ fontSize: '32px', color: '#9CA3AF' }}>👤</span>
-          )}
-        </div>
-        <label style={{
-          cursor: 'pointer',
-          padding: '6px 16px',
-          borderRadius: '20px',
-          border: '1px solid #E5E7EB',
-          fontSize: '12px',
-          fontWeight: 600,
-          color: '#4B5563',
-          backgroundColor: '#FFFFFF',
-          textAlign: 'center'
-        }}>
-          {labelText}
-          <input
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                setFileFn(e.target.files[0]);
-              }
-            }}
-          />
-        </label>
-        {errors[fieldName] && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '2px' }}>{errors[fieldName]}</span>}
-        <span style={{ fontSize: '10px', color: '#9CA3AF' }}>JPG, PNG (Max. 2MB)</span>
-      </div>
-    );
-  };
+
 
   return (
     <>
@@ -1182,7 +1204,15 @@ export default function Register() {
                         <>
                           {currentStep === 0 && (
                             <div>
-                              {renderPhotoUpload('student', studentForm.photo, (file) => handleStudentChange('photo', file), 'Upload Profile Photo', 'photo')}
+                              <PhotoUploadComponent 
+                                formType="student" 
+                                fileVal={studentForm.photo} 
+                                setFileFn={(file) => handleStudentChange('photo', file)} 
+                                labelText="Upload Profile Photo" 
+                                fieldName="photo" 
+                                fallbackInitial={studentForm.fullName}
+                                error={errors.photo}
+                              />
                               
                               <div style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Full Name *</label>
@@ -1506,7 +1536,15 @@ export default function Register() {
                         <>
                           {currentStep === 0 && (
                             <div>
-                              {renderPhotoUpload('trainer', trainerForm.photo, (file) => handleTrainerChange('photo', file), 'Upload Profile Photo', 'photo')}
+                              <PhotoUploadComponent 
+                                formType="trainer" 
+                                fileVal={trainerForm.photo} 
+                                setFileFn={(file) => handleTrainerChange('photo', file)} 
+                                labelText="Upload Profile Photo" 
+                                fieldName="photo" 
+                                fallbackInitial={trainerForm.fullName}
+                                error={errors.photo}
+                              />
 
                               <div style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Full Name *</label>
@@ -1885,7 +1923,15 @@ export default function Register() {
                         <>
                           {currentStep === 0 && (
                             <div>
-                              {renderPhotoUpload('company', companyForm.logo, (file) => handleCompanyChange('logo', file), 'Upload Company Logo', 'logo')}
+                              <PhotoUploadComponent 
+                                formType="company" 
+                                fileVal={companyForm.logo} 
+                                setFileFn={(file) => handleCompanyChange('logo', file)} 
+                                labelText="Upload Company Logo" 
+                                fieldName="logo" 
+                                fallbackInitial={companyForm.companyName}
+                                error={errors.logo}
+                              />
 
                               <div style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Company Name *</label>

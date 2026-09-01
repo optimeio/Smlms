@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../state/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, Search, Filter, ChevronRight, Star, Clock, BarChart3, Tag, Award, Sparkles, X } from 'lucide-react';
 import { PremiumPage, PageHeader, GlassCard, GradientButton, Badge, EmptyState, P } from '../../components/PremiumDesignSystem';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function StudentCourses() {
   const { user, login } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,6 +47,72 @@ export default function StudentCourses() {
       }
     } catch (err) {
       console.error('Failed to complete course:', err);
+    }
+  };
+
+  const handleEnroll = async (course) => {
+    try {
+      const amount = course.price ? parseInt(course.price.toString().replace(/[^0-9]/g, ''), 10) : 999;
+      
+      const orderRes = await fetch('http://localhost:5001/api/payment/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      });
+      const orderData = await orderRes.json();
+      
+      if (!orderData.success) {
+        alert('Failed to initialize payment.');
+        return;
+      }
+      
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TGQxBlp9woSdln",
+        amount: orderData.order.amount,
+        currency: "INR",
+        name: "MBK LMS",
+        description: `Enrollment for ${course.title}`,
+        order_id: orderData.order.id,
+        handler: async function (response) {
+          const verifyRes = await fetch('http://localhost:5001/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response)
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.success) {
+            alert('Payment Successful! You are now enrolled.');
+            const enrollRes = await fetch(`http://localhost:5001/api/users/${user._id || user.id || user.email}/enroll`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ courseId: course._id || course.id })
+            });
+            const enrollData = await enrollRes.json();
+            if (enrollData.success) {
+              const updatedUser = { ...user, assignedCourses: enrollData.user.assignedCourses };
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              window.location.reload();
+            }
+          } else {
+            alert('Payment verification failed.');
+          }
+        },
+        prefill: {
+          name: user?.fullName || "",
+          email: user?.email || "",
+          contact: user?.phone || ""
+        },
+        theme: { color: "#5B5CFF" }
+      };
+      
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response){
+        alert(response.error.description);
+      });
+      rzp.open();
+    } catch (err) {
+      console.error('Payment Error:', err);
+      alert('An error occurred during payment processing.');
     }
   };
 
@@ -108,17 +176,40 @@ export default function StudentCourses() {
                     <div style={{ padding: 24 }}>
                       <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: P.ink }}>{course.title}</h3>
                       <p style={{ margin: '0 0 16px', fontSize: 13, color: P.inkSoft }}>{course.category || 'General'}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                         <span style={{ fontSize: 22, fontWeight: 900, color: P.ink }}>₹{course.price || '999'}</span>
                         <span style={{ fontSize: 14, color: P.inkMute, textDecoration: 'line-through' }}>₹{course.originalPrice || '4999'}</span>
                       </div>
+                      
+                      {/* Dynamic Progress Bar */}
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, fontWeight: 600, color: P.inkMute }}>
+                          <span>Course Progress</span>
+                          <span style={{ color: P.blue }}>
+                            {(() => {
+                               const progressArr = user?.courseProgress?.[course._id || course.id] || [];
+                               const totalModules = course.modules?.length || 1;
+                               const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
+                               return `${Math.min(pct, 100)}%`;
+                            })()}
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ 
+                            width: (() => {
+                               const progressArr = user?.courseProgress?.[course._id || course.id] || [];
+                               const totalModules = course.modules?.length || 1;
+                               const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
+                               return `${Math.min(pct, 100)}%`;
+                            })(), 
+                            height: '100%', background: `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3 
+                          }} />
+                        </div>
+                      </div>
+
                       <div style={{ display: 'flex', gap: 12 }}>
                         <GradientButton variant="outline" style={{ flex: 1 }} onClick={() => { setSelectedCourse(course); setShowSyllabusModal(true); }}>View Syllabus</GradientButton>
-                        {isCompleted ? (
-                          <GradientButton variant="success" disabled style={{ flex: 1 }}>Completed ✓</GradientButton>
-                        ) : (
-                          <GradientButton variant="primary" onClick={() => handleCompleteCourse(course.title)} style={{ flex: 1 }}>Mark Complete</GradientButton>
-                        )}
+                        <GradientButton variant="primary" onClick={() => navigate(`/app/player/${encodeURIComponent(course._id || course.id || course.title)}`)} style={{ flex: 1 }}>Start Learning</GradientButton>
                       </div>
                     </div>
                   </GlassCard>
@@ -314,6 +405,7 @@ export default function StudentCourses() {
                           <motion.button
                             whileHover={{ scale: 1.04, boxShadow: `0 8px 24px ${gFrom}40` }}
                             whileTap={{ scale: 0.97 }}
+                            onClick={(e) => { e.stopPropagation(); handleEnroll(course); }}
                             style={{
                               padding: '9px 20px', borderRadius: 12,
                               border: 'none',

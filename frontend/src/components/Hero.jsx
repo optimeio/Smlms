@@ -36,12 +36,12 @@ export default function Hero() {
 
         <motion.div className="hero-buttons" variants={itemVariants}>
           <motion.a
-            href="#competencies"
+            href="/courses"
             className="btn btn-primary"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
           >
-            Our Competencies
+            Explore Courses
           </motion.a>
           <motion.a
             href="/about"

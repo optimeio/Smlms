@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styles from '../../styles/DashboardShell.module.css';
 import { useAuth } from '../../state/useAuth';
 import { P, GradientButton, GlassCard, SectionTitle } from '../../components/PremiumDesignSystem';
+import ProfileCompletionWidget from '../../components/ProfileCompletionWidget';
 
 const metrics = [
   { label: 'Completion Rate', value: '76%', detail: 'Up 8% from last week' },
@@ -43,6 +44,7 @@ export default function DashboardC() {
 
   return (
     <section className={styles.panel} style={{ padding: '24px 40px', background: P.bg }}>
+      <ProfileCompletionWidget />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <SectionTitle>Company Overview</SectionTitle>
         <GradientButton 

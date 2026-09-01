@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ==================== PREMIUM CSS VARIABLES ==================== */
@@ -14,6 +13,10 @@
   /* Backgrounds & Surfaces */
   --bg-color: #F7F9FF;
   --surface-color: #FFFFFF;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(91, 92, 255, 0.08);
+  --sidebar-bg: #F8FAFC;
+  --input-bg: #F8FAFC;
   
   /* Typography */
   --ink: #1B1F3B;
@@ -55,8 +58,12 @@ body.theme-dark {
   --secondary: #8B6FFF;
   
   /* Backgrounds & Surfaces */
-  --bg-color: #0B1028;
-  --surface-color: #141A38;
+  --bg-color: #0F172A;
+  --surface-color: #1E293B;
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --sidebar-bg: #1E293B;
+  --input-bg: #334155;
   
   /* Typography */
   --ink: #F7F9FF;
@@ -74,10 +81,10 @@ body.theme-dark {
 
 /* ==================== PREMIUM UTILITIES ==================== */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.95));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(91, 92, 255, 0.08);
+  border: 1px solid var(--glass-border, rgba(91, 92, 255, 0.08));
   box-shadow: var(--premium-shadow);
   border-radius: var(--radius-xl);
 }

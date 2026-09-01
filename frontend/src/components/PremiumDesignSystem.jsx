@@ -91,11 +91,10 @@ export function GlassCard({ children, style = {}, hover = true, className = '', 
   return (
     <motion.div
       className={`mbk-glass-card ${className}`}
-      onClick={onClick}
       whileHover={hover ? { y: -4, boxShadow: P.shadowHover } : {}}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       style={{
-        background: 'rgba(255,255,255,0.7)',
+        background: 'var(--glass-bg, rgba(255,255,255,0.7))',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: `1px solid ${P.border}`,
@@ -103,8 +102,9 @@ export function GlassCard({ children, style = {}, hover = true, className = '', 
         padding: 28,
         boxShadow: P.shadow,
         cursor: onClick ? 'pointer' : 'default',
-        ...style,
+        ...style
       }}
+      onClick={onClick}
     >
       {children}
     </motion.div>
@@ -130,7 +130,7 @@ export function PremiumStatCard({ label, value, icon, gradientFrom, gradientTo }
 }
 
 /* ─── Buttons ─── */
-export function GradientButton({ children, onClick, disabled, style = {}, variant = 'primary' }) {
+export function GradientButton({ children, onClick, disabled, style = {}, variant = 'primary', ...rest }) {
   const variants = {
     primary:  { bg: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`, shadow: `0 10px 25px rgba(91,92,255,0.3)` },
     success:  { bg: `linear-gradient(135deg, ${P.green}, #43E97B)`, shadow: `0 10px 25px rgba(34,197,94,0.3)` },
@@ -148,6 +148,7 @@ export function GradientButton({ children, onClick, disabled, style = {}, varian
       whileTap={disabled ? {} : { y: 0, scale: 0.98 }}
       onClick={onClick}
       disabled={disabled}
+      {...rest}
       style={{
         padding: '12px 24px',
         background: disabled ? '#e2e8f0' : v.bg,

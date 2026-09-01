@@ -11,7 +11,7 @@ function Toggle({ value, onChange }) {
       position: 'relative', transition: 'background .25s', boxShadow: value ? '0 4px 12px rgba(91,92,255,0.25)' : 'none',
     }}>
       <div style={{
-        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+        width: 20, height: 20, borderRadius: '50%', background: P.surface,
         position: 'absolute', top: 3, left: value ? 25 : 3,
         transition: 'left .25s cubic-bezier(.4,0,.2,1)', boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
       }} />
@@ -21,7 +21,7 @@ function Toggle({ value, onChange }) {
 
 function SettingRow({ title, desc, children }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: P.radiusSm, transition: 'background .15s' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'var(--input-bg)', borderRadius: P.radiusSm, transition: 'background .15s' }}>
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: P.ink }}>{title}</div>
         <div style={{ fontSize: 12, color: P.inkMute, marginTop: 2 }}>{desc}</div>
@@ -209,7 +209,7 @@ export default function StudentSettings() {
               {['light', 'dark', 'system'].map(t => (
                 <div key={t} onClick={() => handleSettingChange('theme', t, setTheme)} style={{
                   flex: 1, padding: '14px 12px', borderRadius: 12, textAlign: 'center', cursor: 'pointer',
-                  background: theme === t ? `rgba(91,92,255,0.06)` : '#f8fafc',
+                  background: theme === t ? `rgba(91,92,255,0.06)` : 'var(--input-bg)',
                   border: `2px solid ${theme === t ? P.primary : P.border}`,
                   fontWeight: 700, fontSize: 13, color: theme === t ? P.primary : P.inkMute,
                   transition: 'all .2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
@@ -274,7 +274,7 @@ export default function StudentSettings() {
             { title: 'Report a Bug', desc: 'Let us know about any issues', icon: <Bug size={20} />, color: P.red },
           ].map(item => (
             <div key={item.title} style={{
-              padding: 20, background: '#f8fafc', borderRadius: P.radiusSm, cursor: 'pointer',
+              padding: 20, background: 'var(--input-bg)', borderRadius: P.radiusSm, cursor: 'pointer',
               border: `1px solid ${P.border}`, transition: 'all .2s',
             }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = P.shadow; }}

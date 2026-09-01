@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, Users, Layers, ClipboardList, Calendar, CheckCircle, Star, Video, ArrowUpRight, Sparkles } from 'lucide-react';
 import { useAuth } from '../../state/useAuth';
 import { PremiumPage, PageHeader, GlassCard, GradientButton, Badge, PremiumStatCard, SectionTitle, P } from '../../components/PremiumDesignSystem';
+import ProfileCompletionWidget from '../../components/ProfileCompletionWidget';
 
 export default function TrainerDashboard() {
   const { user } = useAuth();
@@ -45,6 +46,8 @@ export default function TrainerDashboard() {
 
   return (
     <PremiumPage>
+      <ProfileCompletionWidget />
+      
       {/* Hero Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

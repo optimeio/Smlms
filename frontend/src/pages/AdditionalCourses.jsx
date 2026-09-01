@@ -21,7 +21,17 @@ export default function AdditionalCourses() {
         const res = await fetch('/api/company-courses');
         const data = await res.json();
         if (data.success) {
-          setCourses(data.courses.filter(c => c.status === 'approved'));
+          const approvedCourses = data.courses.filter(c => c.status === 'approved');
+          // Remove duplicates by course title
+          const uniqueCourses = [];
+          const seenTitles = new Set();
+          for (const course of approvedCourses) {
+            if (!seenTitles.has(course.title)) {
+              seenTitles.add(course.title);
+              uniqueCourses.push(course);
+            }
+          }
+          setCourses(uniqueCourses);
         }
       } catch (err) {
         console.error('Failed to fetch additional courses:', err);
@@ -34,19 +44,101 @@ export default function AdditionalCourses() {
 
   const closeModal = () => setSelectedCourse(null);
 
-  const handlePurchase = (courseId) => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePurchase = async (courseId) => {
     if (!user) {
       navigate('/login');
       return;
     }
     
-    // Mock purchase logic
-    setNotification('Payment successful! You are now enrolled in this course.');
-    setTimeout(() => {
-      setNotification('');
-      closeModal();
-      navigate('/dashboard');
-    }, 2000);
+    const course = courses.find(c => c._id === courseId || c.id === courseId);
+    if (!course) return;
+
+    try {
+      const resLoad = await loadRazorpayScript();
+      if (!resLoad) {
+        alert('Razorpay SDK failed to load. Are you online?');
+        return;
+      }
+
+      const orderPrice = Number(course.price) || 2999;
+      const orderRes = await fetch('/api/payment/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: orderPrice })
+      });
+      const orderData = await orderRes.json();
+      
+      if (!orderData.success) {
+        alert('Failed to create payment order. Please try again later.');
+        return;
+      }
+
+      const options = {
+        key: 'rzp_test_TGQxBlp9woSdln',
+        amount: orderData.order.amount,
+        currency: 'INR',
+        name: 'MBK LMS',
+        description: `Purchase: ${course.title}`,
+        order_id: orderData.order.id,
+        handler: async function (response) {
+          try {
+            const verifyRes = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response)
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              const res = await fetch('/api/users/buy-course', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: user.email, courseTitle: course.title })
+              });
+              const data = await res.json();
+              
+              if (data.success) {
+                setNotification('Payment successful! You are now enrolled in this course.');
+                setTimeout(() => {
+                  setNotification('');
+                  closeModal();
+                  navigate('/dashboard');
+                }, 2000);
+              } else {
+                alert(data.message || 'Failed to enroll after payment.');
+              }
+            } else {
+              alert('Payment verification failed. Please contact support.');
+            }
+          } catch (err) {
+            console.error('Verification error:', err);
+            alert('An error occurred during verification.');
+          }
+        },
+        prefill: {
+          name: user.fullName || user.companyName,
+          email: user.email,
+        },
+        theme: {
+          color: '#5B5CFF'
+        }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      console.error('Purchase error:', err);
+      alert('An error occurred during checkout setup.');
+    }
   };
 
   return (
@@ -155,7 +247,7 @@ export default function AdditionalCourses() {
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px" }}
-                  transition={{ delay: idx * 0.1, duration: 0.5 }}
+                  transition={{ duration: 0.3 }}
                   whileHover={{ y: -8, transition: { type: 'spring', stiffness: 300, damping: 20 } }}
                 >
                   <div className="course-card-banner" style={{ background: course.image ? '#ffffff' : 'linear-gradient(135deg, #0F172A, #1E293B)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
@@ -185,18 +277,20 @@ export default function AdditionalCourses() {
                       ₹{course.price || '2999'}
                     </div>
 
-                    <div style={{ marginBottom: '16px', textAlign: 'right', paddingRight: '8px' }}>
+                    <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end', paddingRight: '8px' }}>
                       <span style={{ 
-                        fontFamily: 'Playfair Display, serif', 
-                        fontWeight: 900, 
-                        fontSize: '18px', 
-                        letterSpacing: '1px', 
-                        background: 'linear-gradient(to right, #D97706, #FBBF24, #FFFBEB, #FBBF24, #D97706)',
-                        backgroundSize: '200% auto',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        animation: 'shine 3s linear infinite',
-                        filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.4))'
+                        display: 'inline-block',
+                        padding: '4px 12px',
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '6px',
+                        fontFamily: 'Inter, sans-serif', 
+                        fontWeight: 600, 
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        color: '#64748B',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
                       }}>
                         By {course.companyName}
                       </span>

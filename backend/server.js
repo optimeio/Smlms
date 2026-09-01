@@ -1,14 +1,58 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
 const path = require('path');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const http = require('http');
 const { Server } = require('socket.io');
-require('dotenv').config();
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+const dotenv = require('dotenv');
+const envConfig = dotenv.parse(fs.readFileSync('.env'));
+for (const k in envConfig) {
+  process.env[k] = envConfig[k];
+}
 
 const app = express();
+
+// Configure Nodemailer Transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+  port: process.env.SMTP_PORT || 587,
+  auth: {
+    user: process.env.SMTP_USER || 'test@ethereal.email',
+    pass: process.env.SMTP_PASS || 'testpass'
+  }
+});
+
+const sendWelcomeEmail = async (userEmail, courseTitle) => {
+  try {
+    if (!process.env.SMTP_USER) {
+      console.log(`[Mock Email] Welcome email for course "${courseTitle}" sent to ${userEmail}`);
+      return;
+    }
+    await transporter.sendMail({
+      from: '"LMS Platform" <noreply@lms.com>',
+      to: userEmail,
+      subject: `Welcome to ${courseTitle}! 🎓`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #4F46E5;">Welcome to the Course!</h2>
+          <p>Hi there,</p>
+          <p>Thank you for enrolling in <strong>${courseTitle}</strong>.</p>
+          <p>You can now access all the modules and start learning right away from your dashboard.</p>
+          <p>Happy Learning!</p>
+          <p>Best,<br>The LMS Team</p>
+        </div>
+      `
+    });
+    console.log(`Welcome email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+};
 const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
 
@@ -260,6 +304,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, default: 'student' },
   assignedCourses: { type: [String], default: [] },
+  purchasedCourses: { type: [String], default: [] },
+  courseProgress: { type: Object, default: {} },
   assignedStudents: { type: [String], default: [] },
   assignedTrainers: { type: [String], default: [] },
   profilePhoto: { type: String },
@@ -338,6 +384,7 @@ const liveClassSchema = new mongoose.Schema({
   studentIds: { type: [String], default: [] },
   timing: { type: String, required: true },
   duration: { type: String, required: true },
+  meetingLink: { type: String },
   assignedByRole: { type: String, default: 'admin' },
   assignerId: { type: String },
   createdAt: { type: Date, default: Date.now }
@@ -390,6 +437,7 @@ const companyCourseSchema = new mongoose.Schema({
   price: Number,
   originalPrice: Number,
   companyName: String,
+  tags: [String],
   status: { type: String, default: 'pending' }, // 'pending' or 'approved'
   
   // Schedule Fields
@@ -508,7 +556,7 @@ let isMongoConnected = false;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/sm_groups';
 
 mongoose.set('strictQuery', true);
-mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 3000 })
+mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000, family: 4 })
   .then(async () => {
     console.log('MongoDB connected.');
     isMongoConnected = true;
@@ -518,7 +566,8 @@ mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 3000 })
       console.error(err);
     }
   })
-  .catch(async () => {
+  .catch(async (err) => {
+    console.error('MongoDB Connection Error:', err);
     console.log('MongoDB unavailable — using local JSON storage.');
     // Fully disconnect so mongoose timers don't cause the process to exit
     try { await mongoose.disconnect(); } catch (_) { /* ignore */ }
@@ -657,13 +706,19 @@ app.post('/api/auth/register', async (req, res) => {
       return res.json({ success: false, errors });
     }
 
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     const userData = {
       ...req.body,
       fullName,
       email,
       phone,
+      password: hashedPassword,
       role: userRole,
       assignedCourses: [],
+      purchasedCourses: [],
+      courseProgress: {},
       createdAt: new Date()
     };
 
@@ -682,7 +737,8 @@ app.post('/api/auth/register', async (req, res) => {
       if (userRole === 'trainer' && req.body.companyEmail) {
         await User.findOneAndUpdate(
           { email: req.body.companyEmail },
-          { $addToSet: { assignedTrainers: email } }
+          { $addToSet: { assignedTrainers: email } },
+          { new: true }
         );
       }
 
@@ -744,8 +800,19 @@ app.post('/api/auth/login', async (req, res) => {
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
       // Trigger nodemon reload for port release
-      console.log(`[LOGIN DB COMPARISON] Stored Password: "${user.password}", Input Password: "${password}"`);
-      if (user.password !== password) {
+      let isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        // Fallback for legacy plain-text passwords
+        if (user.password === password) {
+          console.log(`[LOGIN MIGRATION] Migrating plaintext password for user: "${email}"`);
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(password, salt);
+          await user.save();
+          isMatch = true;
+        }
+      }
+
+      if (!isMatch) {
         console.log(`[LOGIN FAILED] Password mismatch for: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
@@ -759,8 +826,18 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`[LOGIN FAILED] User not found locally: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
-      console.log(`[LOGIN LOCAL COMPARISON] Stored Password: "${user.password}", Input Password: "${password}"`);
-      if (user.password !== password) {
+      let isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        if (user.password === password) {
+          console.log(`[LOGIN MIGRATION] Migrating local plaintext password for: "${email}"`);
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(password, salt);
+          fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+          isMatch = true;
+        }
+      }
+
+      if (!isMatch) {
         console.log(`[LOGIN FAILED] Local password mismatch for: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
@@ -786,11 +863,13 @@ app.post('/api/auth/change-password', async (req, res) => {
       const user = await User.findOne({ email });
       if (!user) return res.json({ success: false, message: 'User not found.' });
       
-      if (user.password !== currentPassword) {
+      let isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch && user.password !== currentPassword) {
         return res.json({ success: false, message: 'Incorrect current password.' });
       }
       
-      user.password = newPassword;
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
       await user.save();
       return res.json({ success: true, message: 'Password changed successfully.' });
     } else {
@@ -798,11 +877,13 @@ app.post('/api/auth/change-password', async (req, res) => {
       const userIndex = localUsers.findIndex(u => u.email === email);
       if (userIndex === -1) return res.json({ success: false, message: 'User not found.' });
       
-      if (localUsers[userIndex].password !== currentPassword) {
+      let isMatch = await bcrypt.compare(currentPassword, localUsers[userIndex].password);
+      if (!isMatch && localUsers[userIndex].password !== currentPassword) {
         return res.json({ success: false, message: 'Incorrect current password.' });
       }
       
-      localUsers[userIndex].password = newPassword;
+      const salt = await bcrypt.genSalt(10);
+      localUsers[userIndex].password = await bcrypt.hash(newPassword, salt);
       fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
       return res.json({ success: true, message: 'Password changed successfully.' });
     }
@@ -1071,6 +1152,157 @@ app.post('/api/users/:userId/complete-course', async (req, res) => {
   }
 });
 
+// Fetch progress for a specific user and course
+app.get('/api/users/:userId/progress/:courseId', async (req, res) => {
+  try {
+    const { userId, courseId } = req.params;
+    let progress = [];
+    if (isMongoConnected) {
+      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      if (user && user.courseProgress) {
+        progress = user.courseProgress[courseId] || [];
+      }
+    } else {
+      const users = getLocalUsers();
+      const user = users.find(u => u.id === userId || u.email === userId);
+      if (user && user.courseProgress) {
+        progress = user.courseProgress[courseId] || [];
+      }
+    }
+    res.json({ success: true, progress });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update progress for a specific user and course
+app.post('/api/users/:userId/progress/:courseId', async (req, res) => {
+  try {
+    const { userId, courseId } = req.params;
+    const { progress } = req.body; // array of completed module titles
+    
+    if (isMongoConnected) {
+      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      if (user) {
+        if (!user.courseProgress) user.courseProgress = {};
+        user.courseProgress[courseId] = progress;
+        user.markModified('courseProgress');
+        await user.save();
+      }
+    } else {
+      const users = getLocalUsers();
+      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      if (userIndex !== -1) {
+        if (!users[userIndex].courseProgress) users[userIndex].courseProgress = {};
+        users[userIndex].courseProgress[courseId] = progress;
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+      }
+    }
+    res.json({ success: true, message: 'Progress updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Enroll in a course (assigns course to user)
+app.post('/api/users/:userId/enroll', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { courseId } = req.body;
+
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
+
+    if (isMongoConnected) {
+      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+      
+      if (!user.assignedCourses) user.assignedCourses = [];
+      if (!user.purchasedCourses) user.purchasedCourses = [];
+      
+      if (!user.assignedCourses.includes(courseId)) {
+        user.assignedCourses.push(courseId);
+      }
+      if (!user.purchasedCourses.includes(courseId)) {
+        user.purchasedCourses.push(courseId);
+      }
+      await user.save();
+
+      // Trigger Welcome Email
+      sendWelcomeEmail(user.email, courseId).catch(console.error);
+
+      return res.json({ success: true, message: 'Enrolled successfully', user });
+    } else {
+      const users = getLocalUsers();
+      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      if (userIndex === -1) return res.status(404).json({ success: false, message: 'User not found' });
+
+      if (!users[userIndex].assignedCourses) users[userIndex].assignedCourses = [];
+      if (!users[userIndex].purchasedCourses) users[userIndex].purchasedCourses = [];
+      
+      let modified = false;
+      if (!users[userIndex].assignedCourses.includes(courseId)) {
+        users[userIndex].assignedCourses.push(courseId);
+        modified = true;
+      }
+      if (!users[userIndex].purchasedCourses.includes(courseId)) {
+        users[userIndex].purchasedCourses.push(courseId);
+        modified = true;
+      }
+      
+      if (modified) {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+      }
+
+      // Trigger Welcome Email
+      sendWelcomeEmail(users[userIndex].email, courseId).catch(console.error);
+
+      return res.json({ success: true, message: 'Enrolled successfully', user: users[userIndex] });
+    }
+  } catch (err) {
+    console.error('Error enrolling course:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get Admin Analytics (Revenue, Enrollments)
+app.get('/api/admin/analytics', async (req, res) => {
+  try {
+    // Generate mock revenue data for chart
+    const revenueData = [
+      { name: 'Jan', revenue: 4000, students: 24 },
+      { name: 'Feb', revenue: 3000, students: 18 },
+      { name: 'Mar', revenue: 5000, students: 30 },
+      { name: 'Apr', revenue: 4500, students: 28 },
+      { name: 'May', revenue: 6000, students: 35 },
+      { name: 'Jun', revenue: 5500, students: 32 },
+      { name: 'Jul', revenue: 7000, students: 40 }
+    ];
+
+    return res.json({ success: true, analytics: revenueData });
+  } catch (err) {
+    console.error('Error fetching analytics:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get all users for admin
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      const users = await User.find({}).sort({ createdAt: -1 });
+      return res.json({ success: true, users });
+    } else {
+      const users = getLocalUsers();
+      return res.json({ success: true, users });
+    }
+  } catch (err) {
+    console.error('Error fetching admin users:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 app.delete('/api/admin/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1180,7 +1412,7 @@ app.get('/api/live-classes', async (req, res) => {
 
 app.post('/api/live-classes', async (req, res) => {
   try {
-    const { courseId, courseTitle, trainerId, studentIds, timing, duration, assignedByRole, assignerId } = req.body;
+    const { courseId, courseTitle, trainerId, studentIds, timing, duration, meetingLink, assignedByRole, assignerId } = req.body;
     
     if (isMongoConnected) {
       const newClass = new LiveClass({
@@ -1190,6 +1422,7 @@ app.post('/api/live-classes', async (req, res) => {
         studentIds,
         timing,
         duration,
+        meetingLink,
         assignedByRole: assignedByRole || 'admin',
         assignerId: assignerId || ''
       });
@@ -1275,6 +1508,7 @@ app.post('/api/live-classes/batch', async (req, res) => {
         studentIds: c.studentIds,
         timing: c.timing,
         duration: c.duration,
+        meetingLink: c.meetingLink,
         assignedByRole: c.assignedByRole || 'admin',
         assignerId: c.assignerId || '',
         dayNumber: c.dayNumber
@@ -2080,8 +2314,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 
     // Update password
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
     if (isMongoConnected) {
-      const updated = await User.findOneAndUpdate({ email }, { password: newPassword }, { new: true });
+      const updated = await User.findOneAndUpdate({ email }, { password: hashedNewPassword }, { new: true });
       if (!updated) {
         return res.status(404).json({ success: false, message: 'User not found.' });
       }
@@ -2089,7 +2326,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
       const localUsers = getLocalUsers();
       const index = localUsers.findIndex(u => u.email === email);
       if (index !== -1) {
-        localUsers[index].password = newPassword;
+        localUsers[index].password = hashedNewPassword;
         fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
       }
     }
@@ -2428,18 +2665,80 @@ app.post('/api/assignments', async (req, res) => {
   try {
     const { title, description, dueDate, assignedTo, createdBy, courseTitle } = req.body;
     if (isMongoConnected) {
-      const newAssignment = new Assignment({ title, description, dueDate, assignedTo, createdBy, courseTitle });
+      const newAssignment = new Assignment({ title, description, dueDate, assignedTo, createdBy, courseTitle, submissions: [] });
       await newAssignment.save();
       res.json({ success: true, assignment: newAssignment });
     } else {
       const assignments = getLocalAssignments();
-      const newAssignment = { id: Date.now().toString(), title, description, dueDate, assignedTo, createdBy, courseTitle, timestamp: new Date().toISOString() };
+      const newAssignment = { id: Date.now().toString(), title, description, dueDate, assignedTo, createdBy, courseTitle, submissions: [], timestamp: new Date().toISOString() };
       assignments.push(newAssignment);
       saveLocalAssignments(assignments);
       res.json({ success: true, assignment: newAssignment });
     }
   } catch (err) {
     res.status(500).json({ success: false, message: 'Error creating assignment' });
+  }
+});
+
+// POST /api/assignments/:id/submit
+app.post('/api/assignments/:id/submit', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentEmail, fileUrl } = req.body;
+    if (isMongoConnected) {
+      const assignment = await Assignment.findById(id);
+      if (!assignment) return res.status(404).json({ success: false, message: 'Not found' });
+      
+      let finalFileUrl = fileUrl;
+      // Process base64 file if it's an uploaded file
+      if (fileUrl && fileUrl.startsWith('data:')) {
+        const ext = fileUrl.split(';')[0].split('/')[1] || 'pdf';
+        finalFileUrl = saveUploadedFile(fileUrl, `submission_${studentEmail}_${Date.now()}.${ext}`);
+      }
+
+      if (!assignment.submissions) assignment.submissions = [];
+      const existingIdx = assignment.submissions.findIndex(s => s.studentEmail === studentEmail);
+      if (existingIdx !== -1) {
+        assignment.submissions[existingIdx].fileUrl = finalFileUrl;
+      } else {
+        assignment.submissions.push({ studentEmail, fileUrl: finalFileUrl, grade: null, feedback: '' });
+      }
+      
+      assignment.markModified('submissions');
+      await assignment.save();
+      res.json({ success: true, assignment });
+    } else {
+      res.status(500).json({ success: false, message: 'Local storage submit not implemented' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error submitting assignment' });
+  }
+});
+
+// POST /api/assignments/:id/grade
+app.post('/api/assignments/:id/grade', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentEmail, grade, feedback } = req.body;
+    if (isMongoConnected) {
+      const assignment = await Assignment.findById(id);
+      if (!assignment) return res.status(404).json({ success: false, message: 'Not found' });
+      
+      const existingIdx = assignment.submissions.findIndex(s => s.studentEmail === studentEmail);
+      if (existingIdx !== -1) {
+        assignment.submissions[existingIdx].grade = grade;
+        assignment.submissions[existingIdx].feedback = feedback;
+        assignment.markModified('submissions');
+        await assignment.save();
+        res.json({ success: true, assignment });
+      } else {
+        res.status(404).json({ success: false, message: 'Submission not found' });
+      }
+    } else {
+      res.status(500).json({ success: false, message: 'Local storage grade not implemented' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error grading assignment' });
   }
 });
 
@@ -2498,13 +2797,13 @@ app.get('/api/company-courses', async (req, res) => {
 // POST /api/company-courses
 app.post('/api/company-courses', async (req, res) => {
   try {
-    const { title, syllabus, image, price, originalPrice, companyName, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
+    const { title, syllabus, image, price, originalPrice, companyName, totalDurationHours, trainingDays, startDate, dailyStartTime, tags } = req.body;
     const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
     
     if (isMongoConnected) {
       const newCourse = new CompanyCourse({
         id: Date.now().toString(),
-        title, syllabus, image, price, originalPrice, companyName, status: 'pending',
+        title, syllabus, image: image && image.startsWith('data:') ? saveUploadedFile(image, `company_course_${Date.now()}.png`) : image, price, originalPrice, companyName, tags, status: 'pending',
         totalDurationHours: totalDurationHours || 0,
         trainingDays: trainingDays || 0,
         startDate: startDate || null,
@@ -2516,7 +2815,7 @@ app.post('/api/company-courses', async (req, res) => {
     } else {
       const newCourse = {
         id: Date.now().toString(),
-        title, syllabus, image, price, originalPrice, companyName, status: 'pending',
+        title, syllabus, image: image && image.startsWith('data:') ? saveUploadedFile(image, `company_course_${Date.now()}.png`) : image, price, originalPrice, companyName, tags, status: 'pending',
         totalDurationHours: totalDurationHours || 0,
         trainingDays: trainingDays || 0,
         startDate: startDate || null,
@@ -2530,6 +2829,7 @@ app.post('/api/company-courses', async (req, res) => {
       res.json({ success: true, course: newCourse });
     }
   } catch (err) {
+    console.error("POST /api/company-courses error:", err);
     res.status(500).json({ success: false, message: 'Error creating company course' });
   }
 });
@@ -2538,14 +2838,20 @@ app.post('/api/company-courses', async (req, res) => {
 app.put('/api/company-courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, syllabus, image, price, originalPrice, totalDurationHours, trainingDays, startDate, dailyStartTime } = req.body;
+    const { title, syllabus, image, price, originalPrice, totalDurationHours, trainingDays, startDate, dailyStartTime, tags } = req.body;
     const generatedSchedule = generateSchedule(startDate, dailyStartTime, totalDurationHours, trainingDays);
     if (isMongoConnected) {
       const course = await CompanyCourse.findById(id).catch(() => CompanyCourse.findOne({ id }));
       if (course) {
         if (title) course.title = title;
         if (syllabus) course.syllabus = syllabus;
-        if (image !== undefined) course.image = image;
+        if (image !== undefined) {
+          if (image && image.startsWith('data:')) {
+            course.image = saveUploadedFile(image, `company_course_${Date.now()}.png`);
+          } else {
+            course.image = image;
+          }
+        }
         if (price !== undefined) course.price = price;
         if (originalPrice !== undefined) course.originalPrice = originalPrice;
         
@@ -2554,6 +2860,7 @@ app.put('/api/company-courses/:id', async (req, res) => {
         if (startDate !== undefined) course.startDate = startDate;
         if (dailyStartTime !== undefined) course.dailyStartTime = dailyStartTime;
         if (generatedSchedule.length > 0) course.schedule = generatedSchedule;
+        if (tags !== undefined) course.tags = tags;
         
         await course.save();
         res.json({ success: true, course });
@@ -2920,6 +3227,47 @@ app.delete('/api/requests/:id', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ success: false, message: 'Error deleting request' });
+  }
+});
+
+// --- Razorpay Integration ---
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.trim() : '',
+  key_secret: process.env.RAZORPAY_SECRET ? process.env.RAZORPAY_SECRET.trim() : '',
+});
+
+app.post('/api/payment/orders', async (req, res) => {
+  try {
+    const options = {
+      amount: req.body.amount * 100, // amount in smallest currency unit
+      currency: "INR",
+      receipt: "receipt_order_" + Date.now(),
+    };
+    const order = await razorpayInstance.orders.create(options);
+    if (!order) return res.status(500).json({ success: false, message: "Some error occured" });
+    res.json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error", error });
+  }
+});
+
+app.post('/api/payment/verify', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSign = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET || '')
+      .update(sign.toString())
+      .digest("hex");
+
+    if (razorpay_signature === expectedSign) {
+      return res.status(200).json({ success: true, message: "Payment verified successfully" });
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid signature sent!" });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error!" });
   }
 });
 

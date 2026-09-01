@@ -763,6 +763,29 @@
   .about-main-heading {
     font-size: 38px;
   }
+  .trust-grid-cards {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 20px;
+    gap: 16px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .trust-grid-cards::-webkit-scrollbar {
+    height: 6px;
+  }
+  .trust-grid-cards::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+  }
+  .trust-interactive-card {
+    min-width: 260px !important;
+    width: 260px !important;
+    flex: 0 0 auto !important;
+    scroll-snap-align: center;
+  }
 }
 
 @media (max-width: 480px) {
