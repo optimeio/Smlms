@@ -14,8 +14,23 @@ export default function RegisterTrainer() {
     specialization: '',
     experience: '',
     teachingMode: 'Online',
-    courseName: ''
+    courseName: '',
+    bankAccountName: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    bankName: ''
   });
+  
+  const [files, setFiles] = useState({
+    degreeCertificate: null,
+    liveSelfie: null,
+    passportPhoto: null,
+    aadhaarCard: null,
+    panCard: null,
+    resume: null,
+    ndaAgreement: null
+  });
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -50,29 +65,33 @@ export default function RegisterTrainer() {
     
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const formData = new FormData();
+      Object.keys(trainerForm).forEach(key => formData.append(key, trainerForm[key]));
+      Object.keys(files).forEach(key => {
+        if (files[key]) formData.append(key, files[key]);
+      });
+      formData.append('role', 'trainer');
+      if (user?.email) formData.append('companyEmail', user.email);
+
+      const res = await fetch('/api/auth/register-trainer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...trainerForm,
-          role: 'trainer',
-          companyEmail: user?.email // pass company email to associate in DB
-        })
+        // No Content-Type header when using FormData
+        body: formData
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg('Trainer registered successfully! They have been added to your directory.');
+        setSuccessMsg('Trainer registered successfully! Status is pending until admin approval.');
         setTrainerForm({
-          fullName: '',
-          email: '',
-          phone: '',
-          password: '',
-          confirmPassword: '',
-          specialization: '',
-          experience: '',
-          teachingMode: 'Online',
-          courseName: ''
+          fullName: '', email: '', phone: '', password: '', confirmPassword: '',
+          specialization: '', experience: '', teachingMode: 'Online', courseName: '',
+          bankAccountName: '', bankAccountNumber: '', bankIfsc: '', bankName: ''
         });
+        setFiles({
+          degreeCertificate: null, liveSelfie: null, passportPhoto: null,
+          aadhaarCard: null, panCard: null, resume: null, ndaAgreement: null
+        });
+        // reset file inputs
+        document.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
       } else {
         if (data.errors) {
           setErrors(data.errors);
@@ -97,7 +116,7 @@ export default function RegisterTrainer() {
     <PremiumPage>
       <PageHeader
         title="Register Trainer"
-        subtitle="Create a new trainer profile and automatically assign them to your company."
+        subtitle="Create a new trainer profile and submit details for admin approval."
         emoji="📝"
       />
 
@@ -126,6 +145,7 @@ export default function RegisterTrainer() {
 
         <div style={cardStyle}>
           <form onSubmit={handleRegisterTrainer} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: 8, margin: 0 }}>Basic Details</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               <div>
                 <label style={labelStyle}>Full Name</label>
@@ -229,13 +249,54 @@ export default function RegisterTrainer() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', marginTop: 10, borderBottom: '1px solid #e2e8f0', paddingBottom: 8, margin: 0 }}>Bank Details</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <label style={labelStyle}>Account Name</label>
+                <input type="text" value={trainerForm.bankAccountName} onChange={e => setTrainerForm({ ...trainerForm, bankAccountName: e.target.value })} style={inputSt} placeholder="Name on bank account" />
+              </div>
+              <div>
+                <label style={labelStyle}>Account Number</label>
+                <input type="text" value={trainerForm.bankAccountNumber} onChange={e => setTrainerForm({ ...trainerForm, bankAccountNumber: e.target.value })} style={inputSt} placeholder="Account Number" />
+              </div>
+              <div>
+                <label style={labelStyle}>IFSC Code</label>
+                <input type="text" value={trainerForm.bankIfsc} onChange={e => setTrainerForm({ ...trainerForm, bankIfsc: e.target.value })} style={inputSt} placeholder="IFSC Code" />
+              </div>
+              <div>
+                <label style={labelStyle}>Bank Name</label>
+                <input type="text" value={trainerForm.bankName} onChange={e => setTrainerForm({ ...trainerForm, bankName: e.target.value })} style={inputSt} placeholder="Bank Name" />
+              </div>
+            </div>
+
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', marginTop: 10, borderBottom: '1px solid #e2e8f0', paddingBottom: 8, margin: 0 }}>Documents Upload</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              {Object.keys(files).map(key => {
+                 const labels = {
+                   degreeCertificate: 'Degree Certificate',
+                   liveSelfie: 'Live Selfie',
+                   passportPhoto: 'Passport Size Photo',
+                   aadhaarCard: 'Aadhaar Card',
+                   panCard: 'PAN Card',
+                   resume: 'Resume / CV',
+                   ndaAgreement: 'Official NDA Agreement'
+                 };
+                 return (
+                   <div key={key}>
+                     <label style={labelStyle}>{labels[key]}</label>
+                     <input type="file" onChange={e => setFiles({ ...files, [key]: e.target.files[0] })} style={{...inputSt, padding: '8px 12px', background: '#f8fafc', fontSize: 12}} />
+                   </div>
+                 );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
               <GradientButton 
                 type="submit" 
                 disabled={loading}
                 style={{ opacity: loading ? 0.7 : 1, padding: '12px 32px' }}
               >
-                {loading ? 'Registering...' : '✓ Register Trainer'}
+                {loading ? 'Submitting...' : '✓ Submit Trainer Registration'}
               </GradientButton>
             </div>
           </form>

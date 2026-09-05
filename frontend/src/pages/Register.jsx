@@ -92,6 +92,47 @@ const PhotoUploadComponent = ({ formType, fileVal, setFileFn, labelText = 'Uploa
   );
 };
 
+const FileUploadPremium = ({ labelText, accept, onChange, error, fileVal }) => (
+  <div style={{ marginBottom: '24px' }}>
+    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>
+      {labelText}
+    </label>
+    <label style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px',
+      border: error ? '2px dashed #ef4444' : '2px dashed #cbd5e1',
+      borderRadius: '16px',
+      backgroundColor: '#f8fafc',
+      cursor: 'pointer',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.05)'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = error ? '#ef4444' : '#cbd5e1'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      <input type="file" accept={accept} onChange={onChange} style={{ display: 'none' }} />
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', zIndex: 1 }}>
+        <div style={{ padding: '12px', borderRadius: '50%', backgroundColor: '#e2e8f0', color: '#64748b' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
+        <span style={{ textAlign: 'center' }}>
+          {fileVal ? (
+             <span style={{ color: '#0f172a', fontWeight: 600, fontSize: '14px' }}>{fileVal.name || 'File selected'}</span>
+          ) : (
+             <>
+               <span style={{ color: '#FF6B00', fontWeight: 600, fontSize: '14px' }}>Click to upload</span> <span style={{ color: '#475569', fontSize: '14px' }}>or drag and drop</span>
+               <span style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginTop: '4px', fontWeight: 400 }}>PDF, JPG, PNG (Max 5MB)</span>
+             </>
+          )}
+        </span>
+      </span>
+    </label>
+    {error && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', display: 'block', fontWeight: 500 }}>{error}</span>}
+  </div>
+);
 
 export default function Register() {
   const navigate = useNavigate();
@@ -387,6 +428,10 @@ export default function Register() {
     email: '',
     phone: '',
     address: '',
+    passportPhoto: null,
+    liveSelfie: null,
+    degreeCertificate: null,
+    ndaAgreement: null
   });
 
   const [companyForm, setCompanyForm] = useState({
@@ -711,11 +756,42 @@ export default function Register() {
     }
 
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let res;
+      if (regType === 'trainer') {
+        // Use FormData to upload actual files for trainers
+        const formData = new FormData();
+        // Add text fields
+        const textFields = { ...trainerForm };
+        const fileFieldNames = ['resume', 'photo', 'expCertificate', 'aadharCard', 'panCard', 'bankDetails'];
+        fileFieldNames.forEach(f => delete textFields[f]);
+        Object.keys(textFields).forEach(key => {
+          if (textFields[key] !== null && textFields[key] !== undefined) {
+            formData.append(key, textFields[key]);
+          }
+        });
+        formData.append('role', 'trainer');
+        formData.append('password', uniquePassword);
+        formData.append('confirmPassword', uniquePassword);
+        formData.append('district', trainerForm.location || 'Salem');
+        formData.append('isApproved', 'false');
+        formData.append('signatureAgreement', trainerForm.signatureAgreement || 'Signed digitally');
+        // Add actual files
+        fileFieldNames.forEach(fieldName => {
+          if (trainerForm[fieldName] && trainerForm[fieldName] instanceof File) {
+            formData.append(fieldName, trainerForm[fieldName]);
+          }
+        });
+        res = await fetch('/api/auth/register-trainer', {
+          method: 'POST',
+          body: formData  // No Content-Type header — browser sets it with boundary
+        });
+      } else {
+        res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       const data = await res.json();
       if (data.success) {
         const storedUser = data.user || {
@@ -1740,60 +1816,15 @@ export default function Register() {
 
                           {currentStep === 3 && (
                             <div>
-                              <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Professional Resume (PDF) *</label>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handleTrainerChange('resume', e.target.files[0])}
-                                  style={{ width: '100%', fontSize: '13px', color: '#64748B' }}
-                                />
-                                {errors.resume && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.resume}</span>}
-                              </div>
-
-                              <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Experience Certificate (PDF) *</label>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handleTrainerChange('expCertificate', e.target.files[0])}
-                                  style={{ width: '100%', fontSize: '13px', color: '#64748B' }}
-                                />
-                                {errors.expCertificate && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.expCertificate}</span>}
-                              </div>
-
-                              <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Aadhar Card (PDF) *</label>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handleTrainerChange('aadharCard', e.target.files[0])}
-                                  style={{ width: '100%', fontSize: '13px', color: '#64748B' }}
-                                />
-                                {errors.aadharCard && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.aadharCard}</span>}
-                              </div>
-
-                              <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>PAN Card (PDF) *</label>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handleTrainerChange('panCard', e.target.files[0])}
-                                  style={{ width: '100%', fontSize: '13px', color: '#64748B' }}
-                                />
-                                {errors.panCard && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.panCard}</span>}
-                              </div>
-
-                              <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '6px' }}>Bank Details (PDF) *</label>
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handleTrainerChange('bankDetails', e.target.files[0])}
-                                  style={{ width: '100%', fontSize: '13px', color: '#64748B' }}
-                                />
-                                {errors.bankDetails && <span style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.bankDetails}</span>}
-                              </div>
+                              <FileUploadPremium labelText="Professional Resume (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('resume', e.target.files[0])} error={errors.resume} fileVal={trainerForm.resume} />
+                              <FileUploadPremium labelText="Experience Certificate (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('expCertificate', e.target.files[0])} error={errors.expCertificate} fileVal={trainerForm.expCertificate} />
+                              <FileUploadPremium labelText="Aadhar Card (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('aadharCard', e.target.files[0])} error={errors.aadharCard} fileVal={trainerForm.aadharCard} />
+                              <FileUploadPremium labelText="PAN Card (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('panCard', e.target.files[0])} error={errors.panCard} fileVal={trainerForm.panCard} />
+                              <FileUploadPremium labelText="Bank Details (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('bankDetails', e.target.files[0])} error={errors.bankDetails} fileVal={trainerForm.bankDetails} />
+                              <FileUploadPremium labelText="Passport Size Photo (Image) *" accept="image/*" onChange={(e) => handleTrainerChange('passportPhoto', e.target.files[0])} fileVal={trainerForm.passportPhoto} />
+                              <FileUploadPremium labelText="Live Selfie (Image) *" accept="image/*" onChange={(e) => handleTrainerChange('liveSelfie', e.target.files[0])} fileVal={trainerForm.liveSelfie} />
+                              <FileUploadPremium labelText="Degree Certificate (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('degreeCertificate', e.target.files[0])} fileVal={trainerForm.degreeCertificate} />
+                              <FileUploadPremium labelText="Official NDA Agreement (PDF) *" accept=".pdf" onChange={(e) => handleTrainerChange('ndaAgreement', e.target.files[0])} fileVal={trainerForm.ndaAgreement} />
 
                               <div style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0F172A', marginBottom: '8px' }}>Trainer Signature Agreement *</label>

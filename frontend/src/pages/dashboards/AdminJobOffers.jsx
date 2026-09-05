@@ -86,6 +86,25 @@ export default function AdminJobOffers() {
     }
   };
 
+  const handleApproveJob = async (jobId) => {
+    if (!window.confirm('Are you sure you want to approve this job for the public Job Fair?')) return;
+    try {
+      const res = await fetch(`${API}/jobs/${jobId}/approve`, {
+        method: 'PUT'
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Job approved and is now visible on the Job Fair page!');
+        fetchJobs();
+      } else {
+        alert(data.message || 'Failed to approve job');
+      }
+    } catch (err) {
+      console.error('Error approving job:', err);
+      alert('Failed to approve job');
+    }
+  };
+
   return (
     <AdminPage>
       <AdminPageHeader title="Job Offers Management" subtitle="Review company job offers and forward to matching students based on MBK requirements" />
@@ -123,7 +142,15 @@ export default function AdminJobOffers() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E7E9F5', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #E7E9F5', paddingTop: '16px' }}>
+                  {job.status === 'Pending' && (
+                    <button
+                      onClick={() => handleApproveJob(job._id || job.id)}
+                      style={{ background: '#10B981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      <CheckCircle size={16} /> Approve for Job Fair
+                    </button>
+                  )}
                   <button
                     onClick={() => handleMatchStudents(job)}
                     style={{ background: '#4C5FD5', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}

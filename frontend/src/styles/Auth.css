@@ -97,7 +97,7 @@
   transition: all 0.3s ease;
   font-family: inherit;
   background-color: var(--white);
-  color: var(--black-soft);
+  color: #0F172A;
 }
 
 .form-input:focus {
@@ -440,3 +440,9 @@
     margin-bottom: 24px !important;
   }
 }
+
+.auth-container input, .auth-container select, .auth-container textarea { color: #0F172A !important; }
+
+
+input, select, textarea { color: black !important; }
+

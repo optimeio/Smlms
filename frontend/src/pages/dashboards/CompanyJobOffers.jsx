@@ -168,31 +168,31 @@ export default function CompanyJobOffers() {
 
       {showModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '500px' }}>
-            <h3 style={{ margin: '0 0 24px 0', fontSize: '20px' }}>Create New Job Offer</h3>
+          <div style={{ background: '#fff', padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '500px', color: '#1B1F3B' }}>
+            <h3 style={{ margin: '0 0 24px 0', fontSize: '20px', color: '#1B1F3B' }}>Create New Job Offer</h3>
             <form onSubmit={handleCreateJob} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold' }}>Job Title</label>
-                <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>Job Title</label>
+                <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', color: '#1B1F3B', background: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold' }}>Description</label>
-                <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', minHeight: '80px' }} />
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>Description</label>
+                <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', minHeight: '80px', color: '#1B1F3B', background: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold' }}>Required Degree (MBK)</label>
-                <input required type="text" value={formData.requirements.degree} onChange={e => setFormData({...formData, requirements: {...formData.requirements, degree: e.target.value}})} placeholder="e.g., B.Tech Computer Science" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>Required Degree (MBK)</label>
+                <input required type="text" value={formData.requirements.degree} onChange={e => setFormData({...formData, requirements: {...formData.requirements, degree: e.target.value}})} placeholder="e.g., B.Tech Computer Science" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', color: '#1B1F3B', background: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold' }}>Required Experience (MBK)</label>
-                <input required type="text" value={formData.requirements.experience} onChange={e => setFormData({...formData, requirements: {...formData.requirements, experience: e.target.value}})} placeholder="e.g., 0-2 Years" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>Required Experience (MBK)</label>
+                <input required type="text" value={formData.requirements.experience} onChange={e => setFormData({...formData, requirements: {...formData.requirements, experience: e.target.value}})} placeholder="e.g., 0-2 Years" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', color: '#1B1F3B', background: '#fff' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold' }}>Required Skills (comma separated)</label>
-                <input required type="text" value={formData.requirements.skills} onChange={e => setFormData({...formData, requirements: {...formData.requirements, skills: e.target.value}})} placeholder="e.g., React, Node.js, Python" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>Required Skills (comma separated)</label>
+                <input required type="text" value={formData.requirements.skills} onChange={e => setFormData({...formData, requirements: {...formData.requirements, skills: e.target.value}})} placeholder="e.g., React, Node.js, Python" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #E7E9F5', boxSizing: 'border-box', color: '#1B1F3B', background: '#fff' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #E7E9F5', background: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
+                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #E7E9F5', background: '#fff', color: '#1B1F3B', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
                 <button type="submit" style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#4C5FD5', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>Submit Offer</button>
               </div>
             </form>

@@ -32,3 +32,11 @@ yarn-error.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Google Drive API files
+backend/credentials.json
+backend/token.json
+backend/google-credentials.json
+
+# Uploads
+backend/uploads/

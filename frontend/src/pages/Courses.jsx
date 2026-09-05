@@ -190,6 +190,7 @@ export default function Courses() {
 
   useEffect(() => {
     function getCourseEmoji(title) {
+      if (!title || typeof title !== 'string') return '📚';
       const t = title.toLowerCase();
       if (t.includes('python')) return '🐍';
       if (t.includes('cyber')) return '🛡️';
@@ -214,8 +215,8 @@ export default function Courses() {
         const data = await res.json();
         if (data.success && data.courses && data.courses.length > 0) {
           const mappedDb = data.courses.map((c, idx) => ({
-            id: c._id || c.id,
-            title: c.title,
+            id: c._id || c.id || idx,
+            title: c.title || 'Untitled Course',
             desc: c.description || c.content || 'No description available',
             image: c.image || null,
             originalPrice: c.originalPrice,
@@ -223,7 +224,7 @@ export default function Courses() {
             emoji: getCourseEmoji(c.title),
             gradient: gradientsList[idx % gradientsList.length],
             duration: c.duration || '8 Weeks',
-            syllabus: c.content ? c.content.split('\n').filter(Boolean) : ['Syllabus details pending']
+            syllabus: (c.content && typeof c.content === 'string') ? c.content.split('\n').filter(Boolean) : ['Syllabus details pending']
           }));
           setCoursesList(mappedDb);
         } else {

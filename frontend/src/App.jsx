@@ -12,6 +12,7 @@ import StudentSignup from './pages/StudentSignup';
 import TrainerSignup from './pages/TrainerSignup';
 import CompanySignup from './pages/CompanySignup';
 import About from './pages/About';
+import JobFair from './pages/JobFair';
 import Contact from './pages/Contact';
 import ForgotPassword from './pages/ForgotPassword';
 import OTPVerification from './pages/OTPVerification';
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/courses" element={<Courses />} />
         <Route path="/additional-courses" element={<AdditionalCourses />} />
+        <Route path="/job-fair" element={<JobFair />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register/student" element={<StudentSignup />} />

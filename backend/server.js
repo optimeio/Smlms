@@ -10,10 +10,27 @@ const { Server } = require('socket.io');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const { uploadFileToDrive, createDriveFolder } = require('./googleDriveService');
 const envConfig = dotenv.parse(fs.readFileSync('.env'));
 for (const k in envConfig) {
   process.env[k] = envConfig[k];
 }
+
+const multer = require('multer');
+const uploadTrainerDir = path.join(__dirname, 'uploads', 'trainers');
+if (!fs.existsSync(uploadTrainerDir)) {
+  fs.mkdirSync(uploadTrainerDir, { recursive: true });
+}
+const trainerStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadTrainerDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const uploadTrainer = multer({ storage: trainerStorage });
 
 const app = express();
 
@@ -642,6 +659,95 @@ const sendRegistrationEmail = async (email, fullName, role, password) => {
 };
 
 // Routes
+app.post('/api/auth/register-trainer', uploadTrainer.any(), async (req, res) => {
+  try {
+    const { role } = req.body;
+    const userRole = role || 'trainer';
+    
+    const email = req.body.email;
+    const phone = req.body.phone;
+    const password = req.body.password;
+    const confirmPassword = req.body.confirmPassword;
+    const fullName = req.body.fullName || '';
+    
+    const errors = {};
+    if (!fullName || fullName.trim().length < 3) {
+      errors.fullName = 'Name must be at least 3 characters.';
+    }
+    if (!email || !validateEmail(email)) {
+      errors.email = 'Please provide a valid email address.';
+    }
+    if (!phone || !validatePhone(phone)) {
+      errors.phone = 'Please provide a valid 10-digit mobile number.';
+    }
+    if (!password || password.length < 8) {
+      errors.password = 'Password must be at least 8 characters long.';
+    }
+    if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return res.json({ success: false, errors });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Save files data
+    const uploadedFiles = {};
+    if (req.files) {
+      req.files.forEach(file => {
+        uploadedFiles[file.fieldname] = file.path;
+      });
+    }
+
+    const userData = {
+      ...req.body,
+      fullName,
+      email,
+      phone,
+      password: hashedPassword,
+      role: userRole,
+      status: 'pending', // Pending approval
+      uploadedDocuments: uploadedFiles,
+      assignedCourses: [],
+      purchasedCourses: [],
+      courseProgress: {},
+      createdAt: new Date()
+    };
+
+    // Check if user already exists
+    if (isMongoConnected) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.json({ success: false, errors: { email: 'Email is already registered.' } });
+      }
+
+      // Create new user in Mongo
+      const newUser = new User(userData);
+      await newUser.save();
+
+      // If registered by a company, auto-associate the trainer's email
+      if (req.body.companyEmail) {
+        await User.findOneAndUpdate(
+          { email: req.body.companyEmail },
+          { $addToSet: { assignedTrainers: email } },
+          { new: true }
+        );
+      }
+
+      await sendRegistrationEmail(email, fullName, userRole, password);
+      return res.status(201).json({ success: true, message: 'Registration successful! Status is pending.', user: { fullName, email, role: userRole } });
+    } else {
+      return res.json({ success: false, errors: { general: 'Database not connected.' } });
+    }
+  } catch (err) {
+    console.error('Error in /api/auth/register-trainer:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { role } = req.body;
@@ -1941,12 +2047,55 @@ app.put('/api/admin/users/:email', async (req, res) => {
     if (status !== undefined) updateData.status = status;
 
     if (isMongoConnected) {
+      const originalUser = await User.findOne({ email });
+      if (!originalUser) return res.status(404).json({ success: false, message: 'User not found.' });
+      
+      const wasPending = originalUser.status !== 'approved' && originalUser.status !== 'Approved';
+      const isNowApproved = updateData.status === 'approved' || updateData.status === 'Approved' || updateData.isApproved === true;
+
       const updated = await User.findOneAndUpdate(
         { email },
         updateData,
         { new: true }
       );
-      if (!updated) return res.status(404).json({ success: false, message: 'User not found.' });
+      
+      if (wasPending && isNowApproved && updated.role === 'trainer' && updated.uploadedDocuments) {
+        const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        if (rootFolderId) {
+          try {
+            // Create a subfolder named after the trainer inside the root folder
+            const trainerFolderName = updated.fullName || updated.email;
+            console.log(`Creating Drive folder for trainer: ${trainerFolderName}`);
+            const trainerFolderId = await createDriveFolder(trainerFolderName, rootFolderId);
+
+            const driveLinks = updated.driveLinks || {};
+            driveLinks._folderId = trainerFolderId;
+            for (const [key, filePath] of Object.entries(updated.uploadedDocuments)) {
+              try {
+                const ext = path.extname(filePath);
+                const fileName = `${key}${ext}`;
+                let mimeType = 'application/octet-stream';
+                if (ext === '.pdf') mimeType = 'application/pdf';
+                else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+                else if (ext === '.png') mimeType = 'image/png';
+                
+                console.log(`Uploading ${fileName} to folder "${trainerFolderName}"...`);
+                const driveFile = await uploadFileToDrive(filePath, fileName, mimeType, trainerFolderId);
+                driveLinks[key] = driveFile.webViewLink;
+              } catch (err) {
+                console.error(`Failed to upload ${key} to Drive:`, err);
+              }
+            }
+            if (Object.keys(driveLinks).length > 0) {
+              updated.driveLinks = driveLinks;
+              await User.updateOne({ email }, { $set: { driveLinks } });
+            }
+          } catch (folderErr) {
+            console.error('Failed to create trainer folder in Drive:', folderErr);
+          }
+        }
+      }
+
       return res.json({ success: true, message: 'User updated successfully!', user: updated });
     } else {
       const localUsers = getLocalUsers();
@@ -2924,22 +3073,79 @@ app.put('/api/company-courses/:id/approve', async (req, res) => {
   }
 });
 
+  // PUT /api/company-courses/:id/stop
+  app.put('/api/company-courses/:id/stop', async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (isMongoConnected) {
+        const course = await CompanyCourse.findById(id).catch(() => CompanyCourse.findOne({ id }));
+        if (course) {
+          course.status = 'stopped';
+          await course.save();
+          res.json({ success: true, course });
+        } else {
+          res.status(404).json({ success: false, message: 'Course not found' });
+        }
+      } else {
+        const courses = getLocalCompanyCourses();
+        const courseIndex = courses.findIndex(c => c.id === id || c._id === id);
+        if (courseIndex !== -1) {
+          courses[courseIndex].status = 'stopped';
+          saveLocalCompanyCourses(courses);
+          res.json({ success: true, course: courses[courseIndex] });
+        } else {
+          res.status(404).json({ success: false, message: 'Course not found' });
+        }
+      }
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Error stopping company course' });
+    }
+  });
+
+  // DELETE /api/company-courses/:id
+  app.delete('/api/company-courses/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (isMongoConnected) {
+        const course = await CompanyCourse.findByIdAndDelete(id).catch(() => CompanyCourse.findOneAndDelete({ id }));
+        if (course) {
+          res.json({ success: true, message: 'Course deleted' });
+        } else {
+          res.status(404).json({ success: false, message: 'Course not found' });
+        }
+      } else {
+        const courses = getLocalCompanyCourses();
+        const newCourses = courses.filter(c => c.id !== id && c._id !== id);
+        if (newCourses.length !== courses.length) {
+          saveLocalCompanyCourses(newCourses);
+          res.json({ success: true, message: 'Course deleted' });
+        } else {
+          res.status(404).json({ success: false, message: 'Course not found' });
+        }
+      }
+    } catch (err) {
+      res.status(500).json({ success: false, message: 'Error deleting company course' });
+    }
+  });
+
 // --- JOB OFFERS API ---
 
 // GET /api/jobs
 app.get('/api/jobs', async (req, res) => {
   try {
-    const { companyId, studentId } = req.query;
+    const { companyId, studentId, status } = req.query;
     if (isMongoConnected) {
       let query = {};
       if (companyId) query.companyId = companyId;
       if (studentId) query.targetedStudents = studentId;
+      if (status) query.status = status;
       const jobs = await JobOffer.find(query).sort({ createdAt: -1 });
       res.json({ success: true, jobs });
     } else {
       let jobs = getLocalJobOffers();
       if (companyId) jobs = jobs.filter(j => j.companyId === companyId);
       if (studentId) jobs = jobs.filter(j => j.targetedStudents && j.targetedStudents.includes(studentId));
+      if (status) jobs = jobs.filter(j => j.status === status);
       res.json({ success: true, jobs: jobs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
     }
   } catch (err) {
@@ -2971,6 +3177,36 @@ app.post('/api/jobs', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ success: false, message: 'Error creating job offer' });
+  }
+});
+
+// PUT /api/jobs/:id/approve
+app.put('/api/jobs/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let jobObj;
+    if (isMongoConnected) {
+      const job = await JobOffer.findById(id);
+      if (job) {
+        job.status = 'Approved';
+        await job.save();
+        jobObj = job;
+      }
+    } else {
+      const jobs = getLocalJobOffers();
+      const jobIndex = jobs.findIndex(j => String(j._id) === String(id) || String(j.id) === String(id));
+      if (jobIndex !== -1) {
+        jobs[jobIndex].status = 'Approved';
+        saveLocalJobOffers(jobs);
+        jobObj = jobs[jobIndex];
+      }
+    }
+    if (!jobObj) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+    res.json({ success: true, job: jobObj, message: 'Job approved for Job Fair' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error approving job' });
   }
 });
 

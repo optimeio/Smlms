@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, PauseCircle } from 'lucide-react';
 import { PremiumPage, PageHeader, GlassCard, Badge, GradientButton, P } from '../../components/PremiumDesignSystem';
 
 export default function AdminCompanyCourses() {
@@ -9,7 +9,7 @@ export default function AdminCompanyCourses() {
 
   const fetchCourses = async () => {
     try {
-      const res = await fetch('/api/company-courses?status=pending');
+      const res = await fetch('/api/company-courses'); // Fetch all, not just pending
       const data = await res.json();
       if (data.success) {
         setCourses(data.courses);
@@ -32,12 +32,38 @@ export default function AdminCompanyCourses() {
       });
       const data = await res.json();
       if (data.success) {
-        setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
+        setCourses(prev => prev.map(c => (c._id || c.id) === id ? { ...c, status: 'approved' } : c));
         alert('Course approved successfully!');
       }
     } catch (err) {
       console.error(err);
       alert('Failed to approve course');
+    }
+  };
+
+  const handleStopPublishing = async (id) => {
+    if (!window.confirm("Are you sure you want to stop publishing this course?")) return;
+    try {
+      const res = await fetch(`/api/company-courses/${id}/stop`, { method: 'PUT' });
+      const data = await res.json();
+      if (data.success) {
+        setCourses(prev => prev.map(c => (c._id || c.id) === id ? { ...c, status: 'stopped' } : c));
+      }
+    } catch (err) {
+      alert('Failed to stop publishing course');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to permanently delete this course?")) return;
+    try {
+      const res = await fetch(`/api/company-courses/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
+      }
+    } catch (err) {
+      alert('Failed to delete course');
     }
   };
 
@@ -55,7 +81,7 @@ export default function AdminCompanyCourses() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
           {courses.length === 0 ? (
             <GlassCard style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 60 }}>
-              <p style={{ color: P.inkMute, margin: 0 }}>No pending courses at the moment.</p>
+              <p style={{ color: P.inkMute, margin: 0 }}>No company courses found.</p>
             </GlassCard>
           ) : (
             courses.map((course, idx) => (
@@ -84,6 +110,11 @@ export default function AdminCompanyCourses() {
                     <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(255,255,255,0.9)', padding: '4px 12px', borderRadius: 20 }}>
                        <span style={{ fontFamily: 'Playfair Display, serif', fontWeight: 900, color: '#333', fontSize: 16, letterSpacing: 1 }}>{course.companyName}</span>
                     </div>
+                    <div style={{ position: 'absolute', top: 12, right: 12 }}>
+                       <Badge variant={course.status === 'approved' ? 'success' : 'warning'}>
+                         {course.status === 'approved' ? 'Approved' : 'Pending'}
+                       </Badge>
+                    </div>
                   </div>
                   <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.ink, fontFamily: P.font }}>{course.title}</h3>
@@ -101,10 +132,28 @@ export default function AdminCompanyCourses() {
                       {course.syllabus}
                     </p>
                     
-                    <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-                      <GradientButton onClick={() => handleApprove(course._id || course.id)} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, background: '#10B981', borderColor: '#10B981' }}>
-                        <CheckCircle size={18} /> Approve
-                      </GradientButton>
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {course.status !== 'approved' ? (
+                        <GradientButton onClick={() => handleApprove(course._id || course.id)} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, background: '#10B981', borderColor: '#10B981', padding: '10px' }}>
+                          <CheckCircle size={18} /> Approve
+                        </GradientButton>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '10px', color: '#10B981', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px' }}>
+                          <CheckCircle size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+                          Approved
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {course.status === 'approved' && (
+                          <button onClick={() => handleStopPublishing(course._id || course.id)} style={{ flex: 1, padding: '10px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                            <PauseCircle size={16} /> Stop Publishing
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(course._id || course.id)} style={{ flex: 1, padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <Trash2 size={16} /> Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

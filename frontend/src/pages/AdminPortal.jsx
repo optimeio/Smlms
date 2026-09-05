@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/AdminPortal.css';
 import '../styles/Dashboard.css';
@@ -7,9 +7,9 @@ import getCroppedImg from '../utils/cropImage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 const API = '/api/admin';
-import AdminLiveClasses from './dashboards/AdminLiveClasses';
-import AdminCompanyCourses from './dashboards/AdminCompanyCourses';
-import AdminJobOffers from './dashboards/AdminJobOffers';
+const AdminLiveClasses = lazy(() => import('./dashboards/AdminLiveClasses'));
+const AdminCompanyCourses = lazy(() => import('./dashboards/AdminCompanyCourses'));
+const AdminJobOffers = lazy(() => import('./dashboards/AdminJobOffers'));
 import { 
   AdminPage, AdminPageHeader, EnterpriseCard, AdminButton, AdminBadge, 
   AdminTableContainer, AdminTh, AdminTd, A 
@@ -886,9 +886,17 @@ export default function AdminPortal() {
   const renderContent = () => {
     switch (activeTab) {
       case 'Company Courses':
-        return <AdminCompanyCourses />;
+        return (
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminCompanyCourses />
+          </Suspense>
+        );
       case 'Job Offers':
-        return <AdminJobOffers adminUser={JSON.parse(localStorage.getItem('adminUser')) || {}} />;
+        return (
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminJobOffers adminUser={JSON.parse(localStorage.getItem('adminUser')) || {}} />
+          </Suspense>
+        );
       case 'Activity Logs':
         return renderActivityLogsTab();
       case 'Dashboard':
@@ -1206,7 +1214,9 @@ export default function AdminPortal() {
       case 'Live Classes':
         return (
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '30px' }}>
-            <AdminLiveClasses />
+            <Suspense fallback={<div>Loading...</div>}>
+              <AdminLiveClasses />
+            </Suspense>
           </div>
         );
       default:

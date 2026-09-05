@@ -15,6 +15,7 @@ export default function Navbar() {
     { name: 'Home', path: '/' },
     { name: 'Courses', path: '/courses' },
     { name: 'Additional Courses', path: '/additional-courses' },
+    { name: 'Job Fair', path: '/job-fair' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
