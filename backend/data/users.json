@@ -19,8 +19,17 @@
     "district": "Salem",
     "college": "Sona College of Technology",
     "department": "CSE",
-    "assignedCourses": ["Embedded Systems", "Electric Vechicle", "MERN Stack Development"],
-    "createdAt": "2026-06-17T12:24:00.433Z"
+    "assignedCourses": [
+      "Electric Vechicle",
+      "Python",
+      "6a55ec7ec53bf5a06c3f5591",
+      "6a4ca856e1b03ddda32100f1"
+    ],
+    "createdAt": "2026-06-17T12:24:00.433Z",
+    "purchasedCourses": [
+      "6a55ec7ec53bf5a06c3f5591",
+      "6a4ca856e1b03ddda32100f1"
+    ]
   },
   {
     "fullName": "Tharaneesh",

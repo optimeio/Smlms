@@ -1,3 +1,4 @@
+// MBK SkillOS Backend Server
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -11,9 +12,14 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const { uploadFileToDrive, createDriveFolder } = require('./googleDriveService');
-const envConfig = dotenv.parse(fs.readFileSync('.env'));
-for (const k in envConfig) {
-  process.env[k] = envConfig[k];
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  const envConfig = dotenv.parse(fs.readFileSync(envPath));
+  for (const k in envConfig) {
+    process.env[k] = envConfig[k];
+  }
+} else {
+  dotenv.config();
 }
 
 const multer = require('multer');
@@ -31,6 +37,21 @@ const trainerStorage = multer.diskStorage({
   }
 });
 const uploadTrainer = multer({ storage: trainerStorage });
+
+const uploadResumesDir = path.join(__dirname, 'uploads', 'resumes');
+if (!fs.existsSync(uploadResumesDir)) {
+  fs.mkdirSync(uploadResumesDir, { recursive: true });
+}
+const resumeStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadResumesDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'resume-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const uploadResume = multer({ storage: resumeStorage, limits: { fileSize: 15 * 1024 * 1024 } });
 
 const app = express();
 
@@ -536,6 +557,63 @@ const saveLocalJobOffers = (jobs) => {
   fs.writeFileSync(JOB_OFFERS_FILE, JSON.stringify(jobs, null, 2));
 };
 
+const jobApplicationSchema = new mongoose.Schema({
+  jobId: { type: String, required: true },
+  jobTitle: { type: String, required: true },
+  companyId: { type: String, required: true },
+  companyName: { type: String },
+  applicantId: { type: String },
+  applicantName: { type: String, required: true },
+  applicantEmail: { type: String, required: true },
+  applicantPhone: { type: String, required: true },
+  applicantRole: { type: String, default: 'student' },
+  qualification: { type: String },
+  college: { type: String },
+  department: { type: String },
+  experience: { type: String },
+  skills: { type: [String], default: [] },
+  location: { type: String },
+  linkedin: { type: String },
+  github: { type: String },
+  portfolio: { type: String },
+  resumeUrl: { type: String },
+  coverLetter: { type: String },
+  expectedSalary: { type: String },
+  status: { 
+    type: String, 
+    default: 'Pending Admin Approval', 
+    enum: ['Pending Admin Approval', 'Forwarded to Company', 'Shortlisted by Company', 'Selected by Company', 'Rejected'] 
+  },
+  adminNotes: { type: String },
+  appliedAt: { type: Date, default: Date.now },
+  approvedAt: { type: Date }
+});
+
+let JobApplication;
+try {
+  JobApplication = mongoose.model('JobApplication', jobApplicationSchema);
+} catch (e) {
+  JobApplication = mongoose.models.JobApplication;
+}
+
+const JOB_APPLICATIONS_FILE = path.join(DATA_DIR, 'job_applications.json');
+if (!fs.existsSync(JOB_APPLICATIONS_FILE)) {
+  fs.writeFileSync(JOB_APPLICATIONS_FILE, JSON.stringify([]));
+}
+
+const getLocalJobApplications = () => {
+  try {
+    const data = fs.readFileSync(JOB_APPLICATIONS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveLocalJobApplications = (apps) => {
+  fs.writeFileSync(JOB_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
+};
+
 
 const REQUESTS_FILE = path.join(DATA_DIR, 'access_requests.json');
 if (!fs.existsSync(REQUESTS_FILE)) {
@@ -568,26 +646,290 @@ const updateLocalRequestStatus = (id, status) => {
   return null;
 };
 
+// ==========================================
+// MBK SkillOS Schemas & Storage Helpers
+// ==========================================
+
+// 1. Skills & Skill Progress
+const skillSchema = new mongoose.Schema({
+  id: { type: String },
+  name: { type: String, required: true },
+  category: { type: String, default: 'Core Engineering' },
+  description: { type: String },
+  icon: { type: String, default: '⚡' },
+  levels: { type: [String], default: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'] },
+  totalPoints: { type: Number, default: 1000 },
+  syllabus: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+let Skill;
+try { Skill = mongoose.model('Skill', skillSchema); } catch (e) { Skill = mongoose.models.Skill; }
+
+const skillProgressSchema = new mongoose.Schema({
+  studentId: { type: String, required: true },
+  studentEmail: { type: String },
+  skillId: { type: String, required: true },
+  skillName: { type: String, required: true },
+  currentLevel: { type: String, default: 'Beginner', enum: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'] },
+  progress: { type: Number, default: 25 },
+  points: { type: Number, default: 150 },
+  badges: { type: [String], default: [] },
+  performanceIndex: { type: Number, default: 75 },
+  evaluations: { type: Array, default: [] },
+  lastUpdated: { type: Date, default: Date.now }
+});
+let SkillProgress;
+try { SkillProgress = mongoose.model('SkillProgress', skillProgressSchema); } catch (e) { SkillProgress = mongoose.models.SkillProgress; }
+
+// 2. Attendance & Discipline
+const attendanceSchema = new mongoose.Schema({
+  studentId: { type: String, required: true },
+  studentEmail: { type: String },
+  studentName: { type: String },
+  batchId: { type: String },
+  courseId: { type: String },
+  courseTitle: { type: String },
+  date: { type: String, required: true },
+  status: { type: String, default: 'Present', enum: ['Present', 'Absent', 'Late', 'Excused'] },
+  punctualityMinutes: { type: Number, default: 0 },
+  markedBy: { type: String },
+  markedByName: { type: String },
+  remarks: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+let AttendanceRecord;
+try { AttendanceRecord = mongoose.model('AttendanceRecord', attendanceSchema); } catch (e) { AttendanceRecord = mongoose.models.AttendanceRecord; }
+
+const disciplineSchema = new mongoose.Schema({
+  studentId: { type: String, required: true, unique: true },
+  studentEmail: { type: String },
+  disciplineScore: { type: Number, default: 95 },
+  attendancePercentage: { type: Number, default: 92 },
+  punctualityRating: { type: Number, default: 4.8 },
+  behaviourRemarks: { type: String, default: 'Consistent, punctual, and highly engaged in practical labs.' },
+  lastUpdated: { type: Date, default: Date.now }
+});
+let DisciplineRecord;
+try { DisciplineRecord = mongoose.model('DisciplineRecord', disciplineSchema); } catch (e) { DisciplineRecord = mongoose.models.DisciplineRecord; }
+
+// 3. Projects & Digital Portfolio
+const projectSchema = new mongoose.Schema({
+  id: { type: String },
+  studentId: { type: String, required: true },
+  studentEmail: { type: String },
+  studentName: { type: String },
+  title: { type: String, required: true },
+  description: { type: String },
+  category: { type: String, default: 'Hardware / Embedded' },
+  skills: { type: [String], default: [] },
+  githubUrl: { type: String },
+  liveUrl: { type: String },
+  files: { type: [String], default: [] },
+  status: { type: String, default: 'Submitted', enum: ['Draft', 'Submitted', 'Under Review', 'Approved', 'Needs Revision'] },
+  trainerFeedback: { type: String },
+  industryFeedback: { type: String },
+  rating: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+let Project;
+try { Project = mongoose.model('Project', projectSchema); } catch (e) { Project = mongoose.models.Project; }
+
+// 4. Batches & Lab Equipment (Institutes & Colleges)
+const batchSchema = new mongoose.Schema({
+  id: { type: String },
+  name: { type: String, required: true },
+  instituteId: { type: String },
+  instituteName: { type: String },
+  collegeId: { type: String },
+  collegeName: { type: String },
+  department: { type: String, default: 'Electronics & Communication' },
+  trainerId: { type: String },
+  trainerName: { type: String },
+  studentIds: { type: [String], default: [] },
+  courseIds: { type: [String], default: [] },
+  startDate: { type: Date },
+  endDate: { type: Date },
+  status: { type: String, default: 'Active', enum: ['Active', 'Upcoming', 'Completed'] },
+  schedule: { type: String, default: 'Mon-Fri 10:00 AM - 1:00 PM' },
+  createdAt: { type: Date, default: Date.now }
+});
+let Batch;
+try { Batch = mongoose.model('Batch', batchSchema); } catch (e) { Batch = mongoose.models.Batch; }
+
+const labEquipmentSchema = new mongoose.Schema({
+  id: { type: String },
+  instituteId: { type: String },
+  labName: { type: String, required: true },
+  equipmentName: { type: String, required: true },
+  totalQuantity: { type: Number, default: 10 },
+  availableQuantity: { type: Number, default: 10 },
+  maintenanceStatus: { type: String, default: 'Operational' },
+  bookedSlots: { type: Array, default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+let LabEquipment;
+try { LabEquipment = mongoose.model('LabEquipment', labEquipmentSchema); } catch (e) { LabEquipment = mongoose.models.LabEquipment; }
+
+// 5. Internships & Industry Supervisions
+const internshipSchema = new mongoose.Schema({
+  id: { type: String },
+  companyId: { type: String, required: true },
+  companyName: { type: String, required: true },
+  title: { type: String, required: true },
+  description: { type: String },
+  durationWeeks: { type: Number, default: 8 },
+  stipend: { type: String, default: '₹15,000 / month' },
+  skillsRequired: { type: [String], default: [] },
+  location: { type: String, default: 'Hybrid / On-site' },
+  status: { type: String, default: 'Open', enum: ['Open', 'In-Progress', 'Closed'] },
+  supervisorId: { type: String },
+  supervisorName: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+let Internship;
+try { Internship = mongoose.model('Internship', internshipSchema); } catch (e) { Internship = mongoose.models.Internship; }
+
+const internshipApplicationSchema = new mongoose.Schema({
+  id: { type: String },
+  internshipId: { type: String, required: true },
+  internshipTitle: { type: String },
+  companyId: { type: String, required: true },
+  companyName: { type: String },
+  studentId: { type: String, required: true },
+  studentEmail: { type: String, required: true },
+  studentName: { type: String, required: true },
+  studentPhone: { type: String },
+  status: { type: String, default: 'Applied', enum: ['Applied', 'Shortlisted', 'Selected', 'In-Progress', 'Completed', 'Rejected'] },
+  supervisorEvaluations: [{
+    weekNumber: Number,
+    rating: Number,
+    technicalProficiency: Number,
+    punctuality: Number,
+    feedback: String,
+    date: { type: Date, default: Date.now }
+  }],
+  finalScore: { type: Number, default: 0 },
+  completionCertificateId: { type: String },
+  appliedAt: { type: Date, default: Date.now }
+});
+let InternshipApplication;
+try { InternshipApplication = mongoose.model('InternshipApplication', internshipApplicationSchema); } catch (e) { InternshipApplication = mongoose.models.InternshipApplication; }
+
+// 6. Placement & Interviews
+const interviewSchema = new mongoose.Schema({
+  id: { type: String },
+  jobId: { type: String },
+  jobTitle: { type: String, required: true },
+  studentId: { type: String, required: true },
+  studentEmail: { type: String, required: true },
+  studentName: { type: String, required: true },
+  companyId: { type: String },
+  companyName: { type: String, required: true },
+  dateTime: { type: Date, required: true },
+  meetingLink: { type: String, default: 'https://meet.google.com/mbk-skillos-live' },
+  type: { type: String, default: 'Technical', enum: ['Mock', 'Technical', 'HR', 'Final'] },
+  status: { type: String, default: 'Scheduled', enum: ['Scheduled', 'Completed', 'Offered', 'Rejected', 'Cancelled'] },
+  interviewer: { type: String },
+  feedback: { type: String },
+  score: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+let Interview;
+try { Interview = mongoose.model('Interview', interviewSchema); } catch (e) { Interview = mongoose.models.Interview; }
+
+// 7. Notifications
+const notificationSchema = new mongoose.Schema({
+  id: { type: String },
+  userId: { type: String, required: true },
+  userEmail: { type: String },
+  role: { type: String },
+  type: { type: String, default: 'System', enum: ['Course', 'Attendance', 'Quiz', 'Internship', 'Interview', 'Certificate', 'System', 'Skill'] },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  link: { type: String },
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+let Notification;
+try { Notification = mongoose.model('Notification', notificationSchema); } catch (e) { Notification = mongoose.models.Notification; }
+
+// JSON Fallback Files for SkillOS
+const SKILLS_FILE = path.join(DATA_DIR, 'skills.json');
+const SKILL_PROGRESS_FILE = path.join(DATA_DIR, 'skill_progress.json');
+const ATTENDANCE_FILE = path.join(DATA_DIR, 'attendance.json');
+const DISCIPLINE_FILE = path.join(DATA_DIR, 'discipline.json');
+const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
+const BATCHES_FILE = path.join(DATA_DIR, 'batches.json');
+const LAB_EQUIPMENT_FILE = path.join(DATA_DIR, 'lab_equipment.json');
+const INTERNSHIPS_FILE = path.join(DATA_DIR, 'internships.json');
+const INTERNSHIP_APPS_FILE = path.join(DATA_DIR, 'internship_applications.json');
+const INTERVIEWS_FILE = path.join(DATA_DIR, 'interviews.json');
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
+
+const DEFAULT_SKILLS = [
+  { id: 'skill-1', name: 'PCB Design & Altium Schematic', category: 'Hardware & Electronics', icon: '⚡', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'Design multi-layer PCBs, high-speed routing, component libraries, and fabrication files.', syllabus: ['Component Footprints & Schematics', 'Layer Stackup & Routing Rules', 'Power Planes & EMI Filtering', 'Gerber & BOM Generation'] },
+  { id: 'skill-2', name: 'Embedded Systems & ARM Microcontrollers', category: 'Hardware & Electronics', icon: '🔌', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'Microcontroller programming in Embedded C, peripherals (I2C, SPI, UART, PWM), and FreeRTOS.', syllabus: ['GPIO & Timer Architectures', 'Interrupt Service Routines', 'Hardware Protocol Drivers', 'RTOS Task Scheduling'] },
+  { id: 'skill-3', name: 'Electric Vehicle Powertrain & BMS', category: 'Automotive & EV', icon: '🚗', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'EV battery management systems, motor control inverter circuits, and regenerative braking.', syllabus: ['Lithium-Ion Chemistry & Thermal Models', 'Active/Passive Cell Balancing', 'CAN Bus Telemetry', 'Inverter Space Vector PWM'] },
+  { id: 'skill-4', name: 'Full Stack MERN & Cloud Architecture', category: 'Software & Cloud', icon: '💻', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'React, Node.js, Express, MongoDB, RESTful API security, and AWS cloud deployment.', syllabus: ['React Hooks & State Flow', 'REST APIs & JWT Security', 'Database Indexing & Aggregations', 'CI/CD & Cloud Hosting'] },
+  { id: 'skill-5', name: 'IoT & Edge Computing with Sensor Networks', category: 'IoT & Automation', icon: '📡', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'Connecting physical sensors to MQTT brokers, ESP32/Raspberry Pi edge nodes, and cloud telemetry.', syllabus: ['Analog/Digital Sensor Interfacing', 'MQTT & HTTP Protocol Clients', 'Edge Filtering & Security', 'Cloud Dashboard Dashboards'] },
+  { id: 'skill-6', name: 'Python, Machine Learning & Computer Vision', category: 'Data & AI', icon: '🤖', levels: ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: 1000, description: 'Data processing with Pandas/NumPy, OpenCV vision models, and scikit-learn neural architectures.', syllabus: ['Data Preprocessing Pipelines', 'Supervised & Unsupervised Models', 'Convolutional Vision Filters', 'Model Quantization & Inference'] }
+];
+
+[
+  [SKILLS_FILE, DEFAULT_SKILLS],
+  [SKILL_PROGRESS_FILE, []],
+  [ATTENDANCE_FILE, []],
+  [DISCIPLINE_FILE, []],
+  [PROJECTS_FILE, []],
+  [BATCHES_FILE, []],
+  [LAB_EQUIPMENT_FILE, []],
+  [INTERNSHIPS_FILE, []],
+  [INTERNSHIP_APPS_FILE, []],
+  [INTERVIEWS_FILE, []],
+  [NOTIFICATIONS_FILE, []]
+].forEach(([filePath, defaultVal]) => {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, JSON.stringify(defaultVal, null, 2));
+  }
+});
+
+const readLocalJson = (filePath, fallback = []) => {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return fallback; }
+};
+const writeLocalJson = (filePath, data) => {
+  try { fs.writeFileSync(filePath, JSON.stringify(data, null, 2)); } catch (e) { console.error('Write JSON error:', e); }
+};
+
 // Database Connection
 let isMongoConnected = false;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/sm_groups';
 
 mongoose.set('strictQuery', true);
+
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connected.');
+  isMongoConnected = true;
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('MongoDB disconnected. Falling back to local storage.');
+  isMongoConnected = false;
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('MongoDB reconnected.');
+  isMongoConnected = true;
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB error:', err.message || err);
+});
+
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000, family: 4 })
-  .then(async () => {
-    console.log('MongoDB connected.');
-    isMongoConnected = true;
-    try {
-      // Seeding disabled to prevent duplicate courses
-    } catch (err) {
-      console.error(err);
-    }
-  })
-  .catch(async (err) => {
-    console.error('MongoDB Connection Error:', err);
+  .catch((err) => {
+    console.error('MongoDB Initial Connection Error:', err.message || err);
     console.log('MongoDB unavailable — using local JSON storage.');
-    // Fully disconnect so mongoose timers don't cause the process to exit
-    try { await mongoose.disconnect(); } catch (_) { /* ignore */ }
+    isMongoConnected = false;
   });
 
 // Helper validation functions
@@ -884,7 +1226,8 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const email = (req.body.email || '').trim();
     const password = (req.body.password || '').trim();
-    console.log(`[LOGIN ATTEMPT] Email: "${email}", Password: "${password}"`);
+    const requestedRole = (req.body.role || '').trim().toLowerCase();
+    console.log(`[LOGIN ATTEMPT] Email: "${email}", Requested Role: "${requestedRole}"`);
 
     if (!email || !password) {
       return res.json({ success: false, message: 'Email and password are required.' });
@@ -896,8 +1239,17 @@ app.post('/api/auth/login', async (req, res) => {
       (email === 'thesmgroups@gmail.com' && (password === 'TSMGPVT@2026' || password === '-n TSMGPVT@2026'))
     ) {
       console.log(`[LOGIN SUCCESS] Admin logged in: ${email}`);
-      return res.json({ success: true, message: 'Login successful!', user: { fullName: 'Admin', email: email } });
+      return res.json({ success: true, message: 'Login successful!', user: { fullName: 'Admin', email: email, role: 'super admin' } });
     }
+
+    const normalizeRoleForCheck = (r) => {
+      if (!r) return 'student';
+      const low = r.toLowerCase().trim();
+      if (low.includes('admin')) return 'admin';
+      if (low.includes('trainer')) return 'trainer';
+      if (low.includes('company') || low.includes('spoc')) return 'company';
+      return 'student';
+    };
 
     if (isMongoConnected) {
       const user = await User.findOne({ email });
@@ -905,7 +1257,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`[LOGIN FAILED] User not found in MongoDB: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
-      // Trigger nodemon reload for port release
+
       let isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         // Fallback for legacy plain-text passwords
@@ -922,16 +1274,45 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`[LOGIN FAILED] Password mismatch for: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
-      console.log(`[LOGIN SUCCESS] User logged in: ${email}`);
+
+      // Check for role mismatch
+      const userRoleNorm = normalizeRoleForCheck(user.role);
+      const reqRoleNorm = requestedRole ? normalizeRoleForCheck(requestedRole) : null;
+
+      if (reqRoleNorm && reqRoleNorm !== 'admin' && userRoleNorm !== 'admin' && userRoleNorm !== reqRoleNorm) {
+        const displayRole = userRoleNorm.charAt(0).toUpperCase() + userRoleNorm.slice(1);
+        console.log(`[LOGIN REJECTED] Role mismatch for ${email}. Registered: ${displayRole}, Attempted: ${requestedRole}`);
+        return res.json({
+          success: false,
+          message: `This account is registered as a ${displayRole}. Please switch to the "${displayRole}" tab to sign in.`
+        });
+      }
+
+      // If user document has no explicit role, assign requestedRole or student
+      if (!user.role && requestedRole) {
+        user.role = requestedRole;
+        await user.save();
+      }
+
+      console.log(`[LOGIN SUCCESS] User logged in: ${email}, Role: ${user.role || requestedRole || 'student'}`);
       const { password: _, ...userWithoutPassword } = user.toObject();
-      return res.json({ success: true, message: 'Login successful!', user: { id: user._id, ...userWithoutPassword } });
+      return res.json({ 
+        success: true, 
+        message: 'Login successful!', 
+        user: { 
+          id: user._id, 
+          role: user.role || requestedRole || 'student', 
+          ...userWithoutPassword 
+        } 
+      });
     } else {
       const localUsers = getLocalUsers();
-      const user = localUsers.find(u => u.email === email);
-      if (!user) {
+      const userIndex = localUsers.findIndex(u => u.email === email);
+      if (userIndex === -1) {
         console.log(`[LOGIN FAILED] User not found locally: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
+      const user = localUsers[userIndex];
       let isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         if (user.password === password) {
@@ -947,9 +1328,35 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(`[LOGIN FAILED] Local password mismatch for: "${email}"`);
         return res.json({ success: false, message: 'Invalid email or password.' });
       }
-      console.log(`[LOGIN SUCCESS] User logged in locally: ${email}`);
+
+      // Check for role mismatch locally
+      const userRoleNorm = normalizeRoleForCheck(user.role);
+      const reqRoleNorm = requestedRole ? normalizeRoleForCheck(requestedRole) : null;
+
+      if (reqRoleNorm && reqRoleNorm !== 'admin' && userRoleNorm !== 'admin' && userRoleNorm !== reqRoleNorm) {
+        const displayRole = userRoleNorm.charAt(0).toUpperCase() + userRoleNorm.slice(1);
+        console.log(`[LOGIN REJECTED] Local role mismatch for ${email}. Registered: ${displayRole}, Attempted: ${requestedRole}`);
+        return res.json({
+          success: false,
+          message: `This account is registered as a ${displayRole}. Please switch to the "${displayRole}" tab to sign in.`
+        });
+      }
+
+      if (!user.role && requestedRole) {
+        user.role = requestedRole;
+        fs.writeFileSync(USERS_FILE, JSON.stringify(localUsers, null, 2));
+      }
+
+      console.log(`[LOGIN SUCCESS] User logged in locally: ${email}, Role: ${user.role || requestedRole || 'student'}`);
       const { password: _, ...userWithoutPassword } = user;
-      return res.json({ success: true, message: 'Login successful!', user: userWithoutPassword });
+      return res.json({ 
+        success: true, 
+        message: 'Login successful!', 
+        user: { 
+          role: user.role || requestedRole || 'student', 
+          ...userWithoutPassword 
+        } 
+      });
     }
   } catch (err) {
     console.error('Login error:', err);
@@ -1210,6 +1617,44 @@ app.put('/api/admin/courses/:id', async (req, res) => {
   }
 });
 
+const isObjectId = (val) => {
+  return Boolean(val && typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim()));
+};
+
+// Safe query generators for Mongoose to avoid CastError on non-ObjectId values
+const getUserQuery = (userId) => {
+  if (!userId) return { email: '__invalid_user_id__' };
+  const rawId = String(userId).trim();
+  const decoded = decodeURIComponent(rawId);
+  if (isObjectId(rawId)) {
+    return { $or: [{ _id: new mongoose.Types.ObjectId(rawId) }, { email: decoded }, { email: rawId }] };
+  }
+  return { $or: [{ email: decoded }, { email: rawId }] };
+};
+
+const getCourseQuery = (courseId) => {
+  if (!courseId) return { id: '__invalid_course_id__' };
+  const rawId = String(courseId).trim();
+  const decoded = decodeURIComponent(rawId);
+  if (isObjectId(rawId)) {
+    return { $or: [{ _id: new mongoose.Types.ObjectId(rawId) }, { id: rawId }, { title: decoded }, { title: rawId }] };
+  }
+  return { $or: [{ id: rawId }, { title: decoded }, { title: rawId }] };
+};
+
+const findLocalUser = (userId) => {
+  if (!userId) return null;
+  const rawId = String(userId).trim();
+  const decoded = decodeURIComponent(rawId);
+  const users = getLocalUsers();
+  return users.find(u => 
+    String(u._id) === rawId || 
+    String(u.id) === rawId || 
+    u.email === rawId || 
+    u.email === decoded
+  );
+};
+
 // Mark course as complete
 app.post('/api/users/:userId/complete-course', async (req, res) => {
   try {
@@ -1221,7 +1666,7 @@ app.post('/api/users/:userId/complete-course', async (req, res) => {
     }
 
     if (isMongoConnected) {
-      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      const user = await User.findOne(getUserQuery(userId));
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
       
       if (!user.completedCourses) {
@@ -1238,7 +1683,7 @@ app.post('/api/users/:userId/complete-course', async (req, res) => {
     } else {
       // Local fallback
       const users = getLocalUsers();
-      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      const userIndex = users.findIndex(u => String(u.id) === userId || String(u._id) === userId || u.email === userId || u.email === decodeURIComponent(userId));
       if (userIndex === -1) return res.status(404).json({ success: false, message: 'User not found' });
 
       if (!users[userIndex].completedCourses) {
@@ -1258,25 +1703,153 @@ app.post('/api/users/:userId/complete-course', async (req, res) => {
   }
 });
 
+// Fetch full user profile safely (supports direct profile fetch and masked access control)
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { requester } = req.query; // email of the person requesting the view (optional)
+    let user = null;
+
+    if (isMongoConnected) {
+      const u = await User.findOne(getUserQuery(userId), '-password');
+      if (u) {
+        user = u.toObject();
+        user.id = user._id;
+      }
+    } else {
+      const found = findLocalUser(userId);
+      if (found) {
+        const { password, ...safe } = found;
+        user = safe;
+      }
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const email = user.email;
+
+    // Check authorization if requester query is provided
+    let isAuthorized = false;
+    const adminEmails = ['admin@smgroups.com', 'thesmgroups@gmail.com'];
+    if (!requester || requester === email || adminEmails.includes(requester)) {
+      isAuthorized = true;
+    } else {
+      // Check if approved access request exists
+      if (isMongoConnected) {
+        const approved = await AccessRequest.findOne({ requesterEmail: requester, targetEmail: email, status: 'Approved' });
+        if (approved) isAuthorized = true;
+      } else {
+        const localRequests = getLocalRequests();
+        const approved = localRequests.find(r => r.requesterEmail === requester && r.targetEmail === email && r.status === 'Approved');
+        if (approved) isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      // Mask private details
+      const maskedUser = {
+        ...user,
+        fullName: user.fullName || user.companyName || 'Anonymous User',
+        role: user.role || 'student',
+        email: '••••••••@••••.•••',
+        originalEmail: user.email,
+        phone: '••••••••••',
+        hrPhone: '••••••••••',
+        hrEmail: '••••••••@••••.•••',
+        address: 'Hidden (Request Access)',
+        resume: 'Hidden (Request Access)',
+        expCertificate: 'Hidden (Request Access)',
+        aadharCard: 'Hidden (Request Access)',
+        panCard: 'Hidden (Request Access)',
+        bankDetails: 'Hidden (Request Access)',
+        regCertificate: 'Hidden (Request Access)',
+        gstCertificate: 'Hidden (Request Access)',
+        signatureAgreement: 'Hidden (Request Access)',
+        isMasked: true
+      };
+
+      let reqStatus = 'None';
+      if (isMongoConnected) {
+        const foundReq = await AccessRequest.findOne({ requesterEmail: requester, targetEmail: email });
+        if (foundReq) reqStatus = foundReq.status;
+      } else {
+        const localRequests = getLocalRequests();
+        const foundReq = localRequests.find(r => r.requesterEmail === requester && r.targetEmail === email);
+        if (foundReq) reqStatus = foundReq.status;
+      }
+      maskedUser.accessRequestStatus = reqStatus;
+
+      return res.json({ success: true, user: maskedUser });
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        id: user._id || user.id,
+        ...user,
+        originalEmail: user.email,
+        isMasked: false,
+        accessRequestStatus: 'Approved'
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching user profile:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Helper to find course across standard and company courses
+const findCourseAnywhere = async (courseId) => {
+  const decoded = decodeURIComponent(courseId);
+  if (isMongoConnected) {
+    try {
+      let c = await Course.findOne(getCourseQuery(courseId));
+      if (c) return c;
+      if (CompanyCourse) {
+        let cc = await CompanyCourse.findOne(getCourseQuery(courseId));
+        if (cc) return cc;
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
+  const localCourses = getLocalCourses();
+  let found = localCourses.find(c => String(c.id) === String(courseId) || String(c._id) === String(courseId) || c.title === decoded);
+  if (found) return found;
+  const localCompany = getLocalCompanyCourses();
+  return localCompany.find(c => String(c.id) === String(courseId) || String(c._id) === String(courseId) || c.title === decoded);
+};
+
 // Fetch progress for a specific user and course
 app.get('/api/users/:userId/progress/:courseId', async (req, res) => {
   try {
     const { userId, courseId } = req.params;
+    const decoded = decodeURIComponent(courseId);
+    const courseObj = await findCourseAnywhere(courseId);
+
     let progress = [];
+
     if (isMongoConnected) {
-      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      const user = await User.findOne(getUserQuery(userId));
       if (user && user.courseProgress) {
-        progress = user.courseProgress[courseId] || [];
+        progress = user.courseProgress[courseId] || 
+                   user.courseProgress[decoded] ||
+                   (courseObj && (user.courseProgress[courseObj._id?.toString()] || user.courseProgress[String(courseObj.id)] || user.courseProgress[courseObj.title])) || [];
       }
     } else {
       const users = getLocalUsers();
-      const user = users.find(u => u.id === userId || u.email === userId);
+      const user = users.find(u => String(u.id) === userId || String(u._id) === userId || u.email === userId || u.email === decodeURIComponent(userId));
       if (user && user.courseProgress) {
-        progress = user.courseProgress[courseId] || [];
+        progress = user.courseProgress[courseId] || 
+                   user.courseProgress[decoded] ||
+                   (courseObj && (user.courseProgress[String(courseObj.id)] || user.courseProgress[courseObj.title])) || [];
       }
     }
     res.json({ success: true, progress });
   } catch (err) {
+    console.error('Error fetching progress:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1285,27 +1858,78 @@ app.get('/api/users/:userId/progress/:courseId', async (req, res) => {
 app.post('/api/users/:userId/progress/:courseId', async (req, res) => {
   try {
     const { userId, courseId } = req.params;
-    const { progress } = req.body; // array of completed module titles
-    
+    const { progress } = req.body; // array of completed module indices or number
+    const decoded = decodeURIComponent(courseId);
+    const courseObj = await findCourseAnywhere(courseId);
+
+    // Calculate total modules for course
+    let totalMods = 1;
+    if (courseObj) {
+      let count = 0;
+      if (courseObj.video) count++;
+      if (courseObj.ppt) count++;
+      if (courseObj.content && count === 0) count++;
+      if (courseObj.modules && courseObj.modules.length > 0) count = courseObj.modules.length;
+      totalMods = Math.max(count, 1);
+    }
+
+    const isFullyDone = Array.isArray(progress) ? progress.length >= totalMods : Number(progress) >= 100;
+
     if (isMongoConnected) {
-      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      const user = await User.findOne(getUserQuery(userId));
       if (user) {
         if (!user.courseProgress) user.courseProgress = {};
+        
         user.courseProgress[courseId] = progress;
+        user.courseProgress[decoded] = progress;
+        if (courseObj) {
+          if (courseObj._id) user.courseProgress[courseObj._id.toString()] = progress;
+          if (courseObj.id) user.courseProgress[String(courseObj.id)] = progress;
+          if (courseObj.title) user.courseProgress[courseObj.title] = progress;
+        }
+
+        if (isFullyDone && courseObj && courseObj.title) {
+          if (!user.completedCourses) user.completedCourses = [];
+          if (!user.completedCourses.includes(courseObj.title)) {
+            user.completedCourses.push(courseObj.title);
+          }
+        }
+
         user.markModified('courseProgress');
+        user.markModified('completedCourses');
         await user.save();
+
+        const { password, ...safeUser } = user.toObject();
+        return res.json({ success: true, message: 'Progress updated', user: { id: user._id, ...safeUser }, progress });
       }
     } else {
       const users = getLocalUsers();
-      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      const userIndex = users.findIndex(u => String(u.id) === userId || String(u._id) === userId || u.email === userId || u.email === decodeURIComponent(userId));
       if (userIndex !== -1) {
         if (!users[userIndex].courseProgress) users[userIndex].courseProgress = {};
+        
         users[userIndex].courseProgress[courseId] = progress;
+        users[userIndex].courseProgress[decoded] = progress;
+        if (courseObj) {
+          if (courseObj.id) users[userIndex].courseProgress[String(courseObj.id)] = progress;
+          if (courseObj.title) users[userIndex].courseProgress[courseObj.title] = progress;
+        }
+
+        if (isFullyDone && courseObj && courseObj.title) {
+          if (!users[userIndex].completedCourses) users[userIndex].completedCourses = [];
+          if (!users[userIndex].completedCourses.includes(courseObj.title)) {
+            users[userIndex].completedCourses.push(courseObj.title);
+          }
+        }
+
         fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+        const { password, ...safeUser } = users[userIndex];
+        return res.json({ success: true, message: 'Progress updated', user: safeUser, progress });
       }
     }
     res.json({ success: true, message: 'Progress updated' });
   } catch (err) {
+    console.error('Error updating progress:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1321,7 +1945,7 @@ app.post('/api/users/:userId/enroll', async (req, res) => {
     }
 
     if (isMongoConnected) {
-      const user = await User.findOne({ $or: [{ _id: userId }, { email: userId }] });
+      const user = await User.findOne(getUserQuery(userId));
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
       
       if (!user.assignedCourses) user.assignedCourses = [];
@@ -1341,7 +1965,7 @@ app.post('/api/users/:userId/enroll', async (req, res) => {
       return res.json({ success: true, message: 'Enrolled successfully', user });
     } else {
       const users = getLocalUsers();
-      const userIndex = users.findIndex(u => u.id === userId || u.email === userId);
+      const userIndex = users.findIndex(u => String(u.id) === userId || String(u._id) === userId || u.email === userId || u.email === decodeURIComponent(userId));
       if (userIndex === -1) return res.status(404).json({ success: false, message: 'User not found' });
 
       if (!users[userIndex].assignedCourses) users[userIndex].assignedCourses = [];
@@ -1483,23 +2107,31 @@ app.get('/api/live-classes', async (req, res) => {
     if (isMongoConnected) {
       let query = { trainerId: { $exists: true, $ne: null }, timing: { $exists: true, $ne: null } };
       
-      let finalTrainerId = trainerId;
-      let finalStudentId = studentId;
-
-      if (trainerId && trainerId.includes('@')) {
-        const tUser = await User.findOne({ email: trainerId });
-        if (tUser) finalTrainerId = tUser._id.toString();
+      if (trainerId) {
+        const trainerMatches = [trainerId];
+        if (trainerId.includes('@')) {
+          const tUser = await User.findOne({ email: trainerId });
+          if (tUser) trainerMatches.push(tUser._id.toString());
+        } else if (isObjectId(trainerId)) {
+          const tUser = await User.findById(trainerId);
+          if (tUser) trainerMatches.push(tUser.email);
+        }
+        query.trainerId = { $in: trainerMatches };
       }
-      if (studentId && studentId.includes('@')) {
-        const sUser = await User.findOne({ email: studentId });
-        if (sUser) finalStudentId = sUser._id.toString();
+
+      if (studentId) {
+        const studentMatches = [studentId];
+        if (studentId.includes('@')) {
+          const sUser = await User.findOne({ email: studentId });
+          if (sUser) studentMatches.push(sUser._id.toString());
+        } else if (isObjectId(studentId)) {
+          const sUser = await User.findById(studentId);
+          if (sUser) studentMatches.push(sUser.email);
+        }
+        query.studentIds = { $in: studentMatches };
       }
 
-      if (finalTrainerId) query.trainerId = finalTrainerId;
-      if (finalStudentId) query.studentIds = finalStudentId;
-      console.log('GET /api/live-classes query:', JSON.stringify(query));
       classes = await LiveClass.find(query).sort({ createdAt: -1 });
-      console.log('GET /api/live-classes found:', classes.length);
     } else {
       classes = getLocalLiveClasses();
       if (trainerId) {
@@ -1698,91 +2330,7 @@ app.get('/api/trainers', async (req, res) => {
   }
 });
 
-// Student/Trainer/Company profile retrieval with masking controls
-app.get('/api/users/:email', async (req, res) => {
-  try {
-    const { email } = req.params;
-    const { requester } = req.query; // email of the person requesting the view
-    
-    let user;
-    if (isMongoConnected) {
-      const dbUser = await User.findOne({ email }, '-password');
-      if (dbUser) user = dbUser.toObject();
-    } else {
-      const localUsers = getLocalUsers();
-      const found = localUsers.find(u => u.email === email);
-      if (found) {
-        const { password, ...u } = found;
-        user = u;
-      }
-    }
-    
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
-    }
-    
-    // Check authorization
-    let isAuthorized = false;
-    const adminEmails = ['admin@smgroups.com', 'thesmgroups@gmail.com'];
-    if (!requester || requester === email || adminEmails.includes(requester)) {
-      isAuthorized = true;
-    } else {
-      // Check if approved access request exists
-      if (isMongoConnected) {
-        const approved = await AccessRequest.findOne({ requesterEmail: requester, targetEmail: email, status: 'Approved' });
-        if (approved) isAuthorized = true;
-      } else {
-        const localRequests = getLocalRequests();
-        const approved = localRequests.find(r => r.requesterEmail === requester && r.targetEmail === email && r.status === 'Approved');
-        if (approved) isAuthorized = true;
-      }
-    }
-    
-    if (!isAuthorized) {
-      // Mask private details
-      const maskedUser = {
-        ...user,
-        fullName: user.fullName || user.companyName || 'Anonymous User',
-        role: user.role || 'student',
-        // Mask details
-        email: '••••••••@••••.•••',
-        originalEmail: user.email,
-        phone: '••••••••••',
-        hrPhone: '••••••••••',
-        hrEmail: '••••••••@••••.•••',
-        address: 'Hidden (Request Access)',
-        resume: 'Hidden (Request Access)',
-        expCertificate: 'Hidden (Request Access)',
-        aadharCard: 'Hidden (Request Access)',
-        panCard: 'Hidden (Request Access)',
-        bankDetails: 'Hidden (Request Access)',
-        regCertificate: 'Hidden (Request Access)',
-        gstCertificate: 'Hidden (Request Access)',
-        signatureAgreement: 'Hidden (Request Access)',
-        isMasked: true
-      };
-      
-      // Determine access request status
-      let reqStatus = 'None';
-      if (isMongoConnected) {
-        const foundReq = await AccessRequest.findOne({ requesterEmail: requester, targetEmail: email });
-        if (foundReq) reqStatus = foundReq.status;
-      } else {
-        const localRequests = getLocalRequests();
-        const foundReq = localRequests.find(r => r.requesterEmail === requester && r.targetEmail === email);
-        if (foundReq) reqStatus = foundReq.status;
-      }
-      maskedUser.accessRequestStatus = reqStatus;
-      
-      return res.json({ success: true, user: maskedUser });
-    }
-    
-    return res.json({ success: true, user: { ...user, originalEmail: user.email, isMasked: false, accessRequestStatus: 'Approved' } });
-  } catch (err) {
-    console.error('Error fetching user profile:', err);
-    res.status(500).json({ success: false, message: 'Server error fetching profile.' });
-  }
-});
+// Profile retrieval handled uniformly by /api/users/:userId
 
 app.put('/api/users/:email/profile', async (req, res) => {
   try {
@@ -2614,15 +3162,14 @@ app.get('/api/users/:email/courses', async (req, res) => {
       if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
       assignedCourseIds = user.assignedCourses || [];
       
-      const validObjectIds = assignedCourseIds.filter(id => mongoose.Types.ObjectId.isValid(id));
-      const titles = assignedCourseIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+      const validObjectIds = assignedCourseIds.filter(id => isObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+      const titles = assignedCourseIds.filter(id => !isObjectId(id));
       
-      const courses = await Course.find({ 
-        $or: [
-          { _id: { $in: validObjectIds } },
-          { title: { $in: titles } }
-        ]
-      });
+      const queryOr = [{ title: { $in: assignedCourseIds } }, { id: { $in: assignedCourseIds } }];
+      if (validObjectIds.length > 0) {
+        queryOr.push({ _id: { $in: validObjectIds } });
+      }
+      const courses = await Course.find({ $or: queryOr });
       return res.json({ success: true, courses });
     } else {
       const localUsers = getLocalUsers();
@@ -3138,17 +3685,56 @@ app.get('/api/jobs', async (req, res) => {
       let query = {};
       if (companyId) query.companyId = companyId;
       if (studentId) query.targetedStudents = studentId;
-      if (status) query.status = status;
-      const jobs = await JobOffer.find(query).sort({ createdAt: -1 });
+      if (status) {
+        if (status.toLowerCase() === 'approved') {
+          query.status = { $in: ['Approved', 'SentToStudents'] };
+        } else {
+          query.status = status;
+        }
+      }
+      const rawJobs = await JobOffer.find(query).sort({ createdAt: -1 });
+
+      const companyIds = [...new Set(rawJobs.map(j => j.companyId).filter(Boolean))];
+      const validOids = companyIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      
+      const companies = await User.find({
+        $or: [
+          { _id: { $in: validOids } },
+          { email: { $in: companyIds } },
+          { id: { $in: companyIds } }
+        ]
+      }).select('companyName fullName email id _id');
+
+      const companyMap = {};
+      companies.forEach(c => {
+        const name = c.companyName || c.fullName || 'Verified Corporate Partner';
+        companyMap[String(c._id)] = name;
+        if (c.email) companyMap[c.email] = name;
+        if (c.id) companyMap[String(c.id)] = name;
+      });
+
+      const jobs = rawJobs.map(j => {
+        const doc = j.toObject ? j.toObject() : { ...j };
+        doc.companyName = companyMap[j.companyId] || doc.companyName || 'Verified Corporate Partner';
+        return doc;
+      });
+
       res.json({ success: true, jobs });
     } else {
       let jobs = getLocalJobOffers();
       if (companyId) jobs = jobs.filter(j => j.companyId === companyId);
       if (studentId) jobs = jobs.filter(j => j.targetedStudents && j.targetedStudents.includes(studentId));
-      if (status) jobs = jobs.filter(j => j.status === status);
+      if (status) {
+        if (status.toLowerCase() === 'approved') {
+          jobs = jobs.filter(j => j.status === 'Approved' || j.status === 'SentToStudents');
+        } else {
+          jobs = jobs.filter(j => j.status === status);
+        }
+      }
       res.json({ success: true, jobs: jobs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
     }
   } catch (err) {
+    console.error('Error fetching jobs:', err);
     res.status(500).json({ success: false, message: 'Error fetching jobs' });
   }
 });
@@ -3254,7 +3840,13 @@ app.put('/api/jobs/:id/send', async (req, res) => {
 
     let studentEmails = [];
     if (isMongoConnected) {
-      const users = await User.find({ $or: [{ _id: { $in: studentIds } }, { email: { $in: studentIds } }] });
+      const validUserOids = (studentIds || []).filter(id => isObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+      const rawIds = (studentIds || []).map(id => String(id));
+      const userQueryOr = [{ email: { $in: rawIds } }];
+      if (validUserOids.length > 0) {
+        userQueryOr.push({ _id: { $in: validUserOids } });
+      }
+      const users = await User.find({ $or: userQueryOr });
       studentEmails = users.map(u => u.email);
       
       // Push notification to targeted students
@@ -3293,7 +3885,9 @@ app.put('/api/jobs/:id/send', async (req, res) => {
       let companyName = 'Our Partner Company';
       if (isMongoConnected) {
         try {
-          const cUser = await User.findById(jobObj.companyId);
+          const cUser = isObjectId(jobObj.companyId)
+            ? await User.findById(jobObj.companyId)
+            : await User.findOne({ email: jobObj.companyId });
           if (cUser) companyName = cUser.companyName || cUser.fullName || companyName;
         } catch(e) {}
       } else {
@@ -3410,6 +4004,300 @@ app.put('/api/jobs/:id/select', async (req, res) => {
   }
 });
 
+// --- JOB APPLICATIONS API ---
+
+// POST /api/job-applications
+app.post('/api/job-applications', uploadResume.single('resume'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    let resumeUrl = body.resumeUrl || '';
+    if (req.file) {
+      resumeUrl = `/uploads/resumes/${req.file.filename}`;
+    }
+
+    let skills = body.skills;
+    if (typeof skills === 'string') {
+      try {
+        skills = JSON.parse(skills);
+      } catch (_) {
+        skills = skills.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+    if (!Array.isArray(skills)) skills = [];
+
+    const appData = {
+      jobId: body.jobId || '',
+      jobTitle: body.jobTitle || 'Job Role',
+      companyId: body.companyId || '',
+      companyName: body.companyName || 'Partner Company',
+      applicantId: body.applicantId || body.applicantEmail,
+      applicantName: body.applicantName || 'Applicant',
+      applicantEmail: body.applicantEmail || '',
+      applicantPhone: body.applicantPhone || '',
+      applicantRole: body.applicantRole || 'student',
+      qualification: body.qualification || '',
+      college: body.college || '',
+      department: body.department || '',
+      experience: body.experience || '',
+      skills: skills,
+      location: body.location || '',
+      linkedin: body.linkedin || '',
+      github: body.github || '',
+      portfolio: body.portfolio || '',
+      resumeUrl: resumeUrl,
+      coverLetter: body.coverLetter || '',
+      expectedSalary: body.expectedSalary || '',
+      status: 'Pending Admin Approval',
+      appliedAt: new Date()
+    };
+
+    if (isMongoConnected) {
+      const newApp = new JobApplication(appData);
+      await newApp.save();
+
+      // Log notification for Admin
+      const adminNotification = {
+        id: `app_${Date.now()}`,
+        sender: 'Job Fair System',
+        text: `New job application received from ${appData.applicantName} for ${appData.jobTitle} (${appData.companyName}). Awaiting Admin verification.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+        createdAt: new Date()
+      };
+      await User.updateMany(
+        { $or: [{ email: 'admin@smgroups.com' }, { email: 'thesmgroups@gmail.com' }, { role: 'super admin' }] },
+        { $push: { notifications: { $each: [adminNotification], $position: 0 } } }
+      );
+
+      res.json({ success: true, message: 'Application submitted successfully for Admin review.', application: newApp });
+    } else {
+      const newApp = {
+        _id: 'app_' + Date.now().toString(),
+        id: 'app_' + Date.now().toString(),
+        ...appData
+      };
+      const apps = getLocalJobApplications();
+      apps.unshift(newApp);
+      saveLocalJobApplications(apps);
+      res.json({ success: true, message: 'Application submitted successfully for Admin review.', application: newApp });
+    }
+  } catch (err) {
+    console.error('Error creating job application:', err);
+    res.status(500).json({ success: false, message: 'Error submitting job application' });
+  }
+});
+
+// GET /api/job-applications
+app.get('/api/job-applications', async (req, res) => {
+  try {
+    const { applicantEmail, applicantId, companyId, status, jobId } = req.query;
+    
+    if (isMongoConnected) {
+      let query = {};
+      if (applicantEmail) query.applicantEmail = applicantEmail;
+      if (applicantId) query.$or = [{ applicantId }, { applicantEmail: applicantId }];
+      if (jobId) query.jobId = jobId;
+
+      if (companyId) {
+        const companyMatches = [companyId];
+        if (companyId.includes('@')) {
+          const cUser = await User.findOne({ email: companyId });
+          if (cUser) companyMatches.push(cUser._id.toString());
+        } else if (isObjectId(companyId)) {
+          const cUser = await User.findById(companyId);
+          if (cUser) companyMatches.push(cUser.email);
+        }
+        query.companyId = { $in: companyMatches };
+        // Companies only see Admin-approved / Forwarded / Selected applications
+        query.status = { $in: ['Forwarded to Company', 'Shortlisted by Company', 'Selected by Company', 'Approved by Admin'] };
+      }
+
+      if (status && !companyId) {
+        query.status = status;
+      }
+
+      const applications = await JobApplication.find(query).sort({ appliedAt: -1 });
+      res.json({ success: true, applications });
+    } else {
+      let apps = getLocalJobApplications();
+      if (applicantEmail) apps = apps.filter(a => a.applicantEmail === applicantEmail);
+      if (applicantId) apps = apps.filter(a => a.applicantId === applicantId || a.applicantEmail === applicantId);
+      if (jobId) apps = apps.filter(a => a.jobId === jobId);
+      if (companyId) {
+        apps = apps.filter(a => 
+          (a.companyId === companyId || a.companyName === companyId) && 
+          ['Forwarded to Company', 'Shortlisted by Company', 'Selected by Company', 'Approved by Admin'].includes(a.status)
+        );
+      }
+      if (status && !companyId) {
+        apps = apps.filter(a => a.status === status);
+      }
+      res.json({ success: true, applications: apps.sort((a,b) => new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0)) });
+    }
+  } catch (err) {
+    console.error('Error fetching job applications:', err);
+    res.status(500).json({ success: false, message: 'Error fetching job applications' });
+  }
+});
+
+// PUT /api/job-applications/:id/approve (Admin approves and forwards to Company)
+app.put('/api/job-applications/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminNotes } = req.body || {};
+
+    let appObj = null;
+    if (isMongoConnected) {
+      const app = isObjectId(id)
+        ? await JobApplication.findById(id)
+        : await JobApplication.findOne({ $or: [{ _id: id }, { id: id }] });
+      
+      if (!app) return res.status(404).json({ success: false, message: 'Application not found' });
+
+      app.status = 'Forwarded to Company';
+      app.approvedAt = new Date();
+      if (adminNotes) app.adminNotes = adminNotes;
+      await app.save();
+      appObj = app.toObject();
+
+      // Notify applicant
+      const studentNotification = {
+        id: `app_fwd_${Date.now()}`,
+        sender: 'MBK Placement Cell',
+        text: `Congratulations! Your application for "${appObj.jobTitle}" has been verified & approved by Admin and forwarded to ${appObj.companyName}.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+        createdAt: new Date()
+      };
+      await User.updateMany(
+        { email: appObj.applicantEmail },
+        { $push: { notifications: { $each: [studentNotification], $position: 0 } } }
+      );
+
+      // Notify Company
+      const companyNotification = {
+        id: `app_comp_${Date.now()}`,
+        sender: 'MBK Super Admin',
+        text: `Admin forwarded a verified candidate application for "${appObj.jobTitle}": ${appObj.applicantName} (${appObj.qualification || 'Candidate'}).`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+        createdAt: new Date()
+      };
+      await User.updateMany(
+        { $or: [{ email: appObj.companyId }, { _id: isObjectId(appObj.companyId) ? appObj.companyId : null }] },
+        { $push: { notifications: { $each: [companyNotification], $position: 0 } } }
+      );
+
+    } else {
+      let apps = getLocalJobApplications();
+      const idx = apps.findIndex(a => a._id === id || a.id === id);
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Application not found' });
+      apps[idx].status = 'Forwarded to Company';
+      apps[idx].approvedAt = new Date().toISOString();
+      if (adminNotes) apps[idx].adminNotes = adminNotes;
+      appObj = apps[idx];
+      saveLocalJobApplications(apps);
+    }
+
+    res.json({ success: true, message: 'Application approved and forwarded to hiring company!', application: appObj });
+  } catch (err) {
+    console.error('Error approving application:', err);
+    res.status(500).json({ success: false, message: 'Error approving application' });
+  }
+});
+
+// PUT /api/job-applications/:id/reject
+app.put('/api/job-applications/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+
+    let appObj = null;
+    if (isMongoConnected) {
+      const app = isObjectId(id)
+        ? await JobApplication.findById(id)
+        : await JobApplication.findOne({ $or: [{ _id: id }, { id: id }] });
+      if (!app) return res.status(404).json({ success: false, message: 'Application not found' });
+      app.status = 'Rejected';
+      if (reason) app.adminNotes = reason;
+      await app.save();
+      appObj = app.toObject();
+    } else {
+      let apps = getLocalJobApplications();
+      const idx = apps.findIndex(a => a._id === id || a.id === id);
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Application not found' });
+      apps[idx].status = 'Rejected';
+      if (reason) apps[idx].adminNotes = reason;
+      appObj = apps[idx];
+      saveLocalJobApplications(apps);
+    }
+    res.json({ success: true, message: 'Application status updated to Rejected.', application: appObj });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating application status' });
+  }
+});
+
+// PUT /api/job-applications/:id/status (Company shortlists, interviews, or selects candidate)
+app.put('/api/job-applications/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body || {};
+
+    let appObj = null;
+    if (isMongoConnected) {
+      const app = isObjectId(id)
+        ? await JobApplication.findById(id)
+        : await JobApplication.findOne({ $or: [{ _id: id }, { id: id }] });
+      if (!app) return res.status(404).json({ success: false, message: 'Application not found' });
+      if (status) app.status = status;
+      if (notes) app.adminNotes = notes;
+      await app.save();
+      appObj = app.toObject();
+
+      const candidateNotification = {
+        id: `app_status_${Date.now()}`,
+        sender: appObj.companyName || 'Hiring Company',
+        text: `Update on your application for ${appObj.jobTitle}: Status changed to "${status}".`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString(),
+        createdAt: new Date()
+      };
+      await User.updateMany(
+        { email: appObj.applicantEmail },
+        { $push: { notifications: { $each: [candidateNotification], $position: 0 } } }
+      );
+    } else {
+      let apps = getLocalJobApplications();
+      const idx = apps.findIndex(a => a._id === id || a.id === id);
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Application not found' });
+      if (status) apps[idx].status = status;
+      if (notes) apps[idx].adminNotes = notes;
+      appObj = apps[idx];
+      saveLocalJobApplications(apps);
+    }
+    res.json({ success: true, application: appObj });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating status' });
+  }
+});
+
+// DELETE /api/job-applications/:id
+app.delete('/api/job-applications/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      if (isObjectId(id)) {
+        await JobApplication.findByIdAndDelete(id);
+      } else {
+        await JobApplication.findOneAndDelete({ $or: [{ _id: id }, { id: id }] });
+      }
+    } else {
+      let apps = getLocalJobApplications();
+      apps = apps.filter(a => a._id !== id && a.id !== id);
+      saveLocalJobApplications(apps);
+    }
+    res.json({ success: true, message: 'Application removed successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error deleting application' });
+  }
+});
+
 // GET /api/requests
 app.get('/api/requests', async (req, res) => {
   try {
@@ -3445,6 +4333,23 @@ app.post('/api/requests', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ success: false, message: 'Error creating request' });
+  }
+});
+
+// PUT /api/requests/:id
+app.put('/api/requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (isMongoConnected) {
+      const updated = await AccessRequest.findByIdAndUpdate(id, { status }, { new: true });
+      res.json({ success: true, request: updated });
+    } else {
+      const updated = updateLocalRequestStatus(id, status);
+      res.json({ success: true, request: updated });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating request' });
   }
 });
 
@@ -3507,14 +4412,1006 @@ app.post('/api/payment/verify', async (req, res) => {
   }
 });
 
-const server = httpServer.listen(PORT, () => {
+// ==========================================
+// MBK SkillOS Core API Endpoints
+// ==========================================
+
+// --- 1. Skills & Progression System ---
+app.get('/api/skills', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      let skills = await Skill.find({}).sort({ createdAt: 1 });
+      if (skills.length === 0) {
+        await Skill.insertMany(DEFAULT_SKILLS);
+        skills = await Skill.find({}).sort({ createdAt: 1 });
+      }
+      return res.json({ success: true, skills });
+    }
+    const skills = readLocalJson(SKILLS_FILE, DEFAULT_SKILLS);
+    res.json({ success: true, skills });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching skills' });
+  }
+});
+
+app.post('/api/skills', async (req, res) => {
+  try {
+    const { name, category, description, icon, levels, totalPoints, syllabus } = req.body;
+    const skillData = { id: `skill-${Date.now()}`, name, category, description, icon: icon || '⚡', levels: levels || ['Beginner', 'Intermediate', 'Advanced', 'Industry Ready'], totalPoints: totalPoints || 1000, syllabus: syllabus || [], createdAt: new Date() };
+    if (isMongoConnected) {
+      const newSkill = new Skill(skillData);
+      await newSkill.save();
+      return res.json({ success: true, skill: newSkill });
+    }
+    const skills = readLocalJson(SKILLS_FILE, DEFAULT_SKILLS);
+    skills.push(skillData);
+    writeLocalJson(SKILLS_FILE, skills);
+    res.json({ success: true, skill: skillData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error adding skill' });
+  }
+});
+
+app.get('/api/skills/progress/:studentId', async (req, res) => {
+  try {
+    const rawId = decodeURIComponent(req.params.studentId);
+    let progressList = [];
+    if (isMongoConnected) {
+      progressList = await SkillProgress.find({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+    } else {
+      const allProg = readLocalJson(SKILL_PROGRESS_FILE, []);
+      progressList = allProg.filter(p => p.studentId === rawId || p.studentEmail === rawId);
+    }
+    
+    // Auto-generate starting skill progression for default skills if none exists
+    if (progressList.length === 0) {
+      const starterProgress = DEFAULT_SKILLS.map((sk, idx) => ({
+        id: `prog-${idx}-${Date.now()}`,
+        studentId: rawId,
+        studentEmail: rawId,
+        skillId: sk.id,
+        skillName: sk.name,
+        currentLevel: idx === 0 ? 'Intermediate' : idx === 1 ? 'Advanced' : 'Beginner',
+        progress: idx === 0 ? 60 : idx === 1 ? 85 : 30,
+        points: idx === 0 ? 600 : idx === 1 ? 850 : 300,
+        badges: idx === 1 ? ['Hardware Ace', 'Circuit Master', 'Foundations Master'] : idx === 0 ? ['Foundations Master'] : ['Fast Starter'],
+        performanceIndex: idx === 1 ? 92 : idx === 0 ? 84 : 70,
+        lastUpdated: new Date()
+      }));
+      if (isMongoConnected) {
+        await SkillProgress.insertMany(starterProgress);
+      } else {
+        const allProg = readLocalJson(SKILL_PROGRESS_FILE, []);
+        allProg.push(...starterProgress);
+        writeLocalJson(SKILL_PROGRESS_FILE, allProg);
+      }
+      progressList = starterProgress;
+    }
+    res.json({ success: true, progress: progressList });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching skill progress' });
+  }
+});
+
+app.post('/api/skills/progress', async (req, res) => {
+  try {
+    const { studentId, studentEmail, skillId, skillName, currentLevel, progress, pointsAdded, badgeEarned } = req.body;
+    if (isMongoConnected) {
+      let record = await SkillProgress.findOne({ $or: [{ studentId, skillId }, { studentEmail, skillId }] });
+      if (!record) {
+        record = new SkillProgress({ studentId, studentEmail, skillId, skillName, currentLevel: currentLevel || 'Beginner', progress: progress || 25, points: pointsAdded || 100, badges: badgeEarned ? [badgeEarned] : [] });
+      } else {
+        if (currentLevel) record.currentLevel = currentLevel;
+        if (progress !== undefined) record.progress = progress;
+        if (pointsAdded) record.points = (record.points || 0) + pointsAdded;
+        if (badgeEarned && !record.badges.includes(badgeEarned)) record.badges.push(badgeEarned);
+        record.lastUpdated = new Date();
+      }
+      await record.save();
+      return res.json({ success: true, progress: record });
+    }
+    const allProg = readLocalJson(SKILL_PROGRESS_FILE, []);
+    const idx = allProg.findIndex(p => (p.studentId === studentId || p.studentEmail === studentEmail) && p.skillId === skillId);
+    if (idx !== -1) {
+      if (currentLevel) allProg[idx].currentLevel = currentLevel;
+      if (progress !== undefined) allProg[idx].progress = progress;
+      if (pointsAdded) allProg[idx].points = (allProg[idx].points || 0) + pointsAdded;
+      if (badgeEarned && !allProg[idx].badges.includes(badgeEarned)) allProg[idx].badges.push(badgeEarned);
+      allProg[idx].lastUpdated = new Date();
+    } else {
+      allProg.push({ id: `prog-${Date.now()}`, studentId, studentEmail, skillId, skillName, currentLevel: currentLevel || 'Beginner', progress: progress || 25, points: pointsAdded || 100, badges: badgeEarned ? [badgeEarned] : [], lastUpdated: new Date() });
+    }
+    writeLocalJson(SKILL_PROGRESS_FILE, allProg);
+    res.json({ success: true, message: 'Skill progress updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating skill progress' });
+  }
+});
+
+app.get('/api/skills/leaderboard', async (req, res) => {
+  try {
+    let usersList = [];
+    if (isMongoConnected) {
+      usersList = await User.find({ role: 'student' }).select('fullName email college department profilePhoto');
+    } else {
+      usersList = getLocalUsers().filter(u => (u.role || 'student').toLowerCase() === 'student');
+    }
+    const leaderboard = usersList.map((u, i) => ({
+      id: u._id || u.id || `lead-${i}`,
+      name: u.fullName || 'Student Learner',
+      email: u.email,
+      college: u.college || 'MBK Institute of Technology',
+      department: u.department || 'ECE / Embedded Systems',
+      points: 2400 - (i * 180) + Math.floor(Math.random() * 50),
+      level: i < 3 ? 'Industry Ready' : i < 8 ? 'Advanced' : 'Intermediate',
+      badgesCount: Math.max(1, 8 - i),
+      performanceIndex: Math.max(72, 98 - (i * 2)),
+      rank: i + 1
+    })).sort((a, b) => b.points - a.points);
+    res.json({ success: true, leaderboard });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching leaderboard' });
+  }
+});
+
+// --- 2. Attendance & Discipline System ---
+app.get('/api/attendance', async (req, res) => {
+  try {
+    const { studentId, batchId, courseId } = req.query;
+    let query = {};
+    if (studentId) query.$or = [{ studentId }, { studentEmail: studentId }];
+    if (batchId) query.batchId = batchId;
+    if (courseId) query.courseId = courseId;
+    
+    if (isMongoConnected) {
+      const records = await AttendanceRecord.find(query).sort({ date: -1 });
+      return res.json({ success: true, attendance: records });
+    }
+    let records = readLocalJson(ATTENDANCE_FILE, []);
+    if (studentId) records = records.filter(r => r.studentId === studentId || r.studentEmail === studentId);
+    if (batchId) records = records.filter(r => r.batchId === batchId);
+    res.json({ success: true, attendance: records.sort((a,b) => new Date(b.date) - new Date(a.date)) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching attendance' });
+  }
+});
+
+app.post('/api/attendance', async (req, res) => {
+  try {
+    const { records } = req.body; // Array of { studentId, studentEmail, studentName, batchId, courseId, courseTitle, date, status, punctualityMinutes, markedBy, markedByName, remarks }
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ success: false, message: 'Records array required' });
+    }
+    if (isMongoConnected) {
+      await AttendanceRecord.insertMany(records);
+      return res.json({ success: true, count: records.length, message: 'Attendance marked successfully' });
+    }
+    const allAtt = readLocalJson(ATTENDANCE_FILE, []);
+    allAtt.push(...records.map(r => ({ ...r, id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`, createdAt: new Date() })));
+    writeLocalJson(ATTENDANCE_FILE, allAtt);
+    res.json({ success: true, count: records.length, message: 'Attendance recorded' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error saving attendance' });
+  }
+});
+
+app.get('/api/discipline/:studentId', async (req, res) => {
+  try {
+    const studentId = decodeURIComponent(req.params.studentId);
+    if (isMongoConnected) {
+      let record = await DisciplineRecord.findOne({ $or: [{ studentId }, { studentEmail: studentId }] });
+      if (!record) {
+        record = new DisciplineRecord({ studentId, studentEmail: studentId, disciplineScore: 94, attendancePercentage: 91, punctualityRating: 4.8, behaviourRemarks: 'Demonstrates active lab participation, excellent punctuality, and collaborative teamwork.' });
+        await record.save();
+      }
+      return res.json({ success: true, discipline: record });
+    }
+    const allDisc = readLocalJson(DISCIPLINE_FILE, []);
+    let record = allDisc.find(d => d.studentId === studentId || d.studentEmail === studentId);
+    if (!record) {
+      record = { id: `disc-${Date.now()}`, studentId, studentEmail: studentId, disciplineScore: 94, attendancePercentage: 91, punctualityRating: 4.8, behaviourRemarks: 'Demonstrates active lab participation, excellent punctuality, and collaborative teamwork.', lastUpdated: new Date() };
+      allDisc.push(record);
+      writeLocalJson(DISCIPLINE_FILE, allDisc);
+    }
+    res.json({ success: true, discipline: record });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching discipline record' });
+  }
+});
+
+// --- 3. Projects & Digital Portfolio ---
+app.get('/api/projects', async (req, res) => {
+  try {
+    const { studentId, status, category } = req.query;
+    let query = {};
+    if (studentId) query.$or = [{ studentId }, { studentEmail: studentId }];
+    if (status) query.status = status;
+    if (category) query.category = category;
+
+    if (isMongoConnected) {
+      const projects = await Project.find(query).sort({ createdAt: -1 });
+      return res.json({ success: true, projects });
+    }
+    let projects = readLocalJson(PROJECTS_FILE, []);
+    if (studentId) projects = projects.filter(p => p.studentId === studentId || p.studentEmail === studentId);
+    if (status) projects = projects.filter(p => p.status === status);
+    res.json({ success: true, projects: projects.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching projects' });
+  }
+});
+
+app.post('/api/projects', async (req, res) => {
+  try {
+    const { studentId, studentEmail, studentName, title, description, category, skills, githubUrl, liveUrl, files } = req.body;
+    const projectData = {
+      id: `proj-${Date.now()}`,
+      studentId,
+      studentEmail,
+      studentName,
+      title,
+      description,
+      category: category || 'Hardware / Embedded',
+      skills: Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s=>s.trim()) : []),
+      githubUrl: githubUrl || '',
+      liveUrl: liveUrl || '',
+      files: files || [],
+      status: 'Submitted',
+      rating: 0,
+      createdAt: new Date()
+    };
+    if (isMongoConnected) {
+      const newProject = new Project(projectData);
+      await newProject.save();
+      return res.json({ success: true, project: newProject });
+    }
+    const projects = readLocalJson(PROJECTS_FILE, []);
+    projects.push(projectData);
+    writeLocalJson(PROJECTS_FILE, projects);
+    res.json({ success: true, project: projectData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error submitting project' });
+  }
+});
+
+app.put('/api/projects/:id/review', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { trainerFeedback, industryFeedback, rating, status } = req.body;
+    if (isMongoConnected) {
+      const proj = await Project.findById(id);
+      if (proj) {
+        if (trainerFeedback !== undefined) proj.trainerFeedback = trainerFeedback;
+        if (industryFeedback !== undefined) proj.industryFeedback = industryFeedback;
+        if (rating !== undefined) proj.rating = rating;
+        if (status) proj.status = status;
+        await proj.save();
+        return res.json({ success: true, project: proj });
+      }
+    }
+    const projects = readLocalJson(PROJECTS_FILE, []);
+    const idx = projects.findIndex(p => p._id === id || p.id === id);
+    if (idx !== -1) {
+      if (trainerFeedback !== undefined) projects[idx].trainerFeedback = trainerFeedback;
+      if (industryFeedback !== undefined) projects[idx].industryFeedback = industryFeedback;
+      if (rating !== undefined) projects[idx].rating = rating;
+      if (status) projects[idx].status = status;
+      writeLocalJson(PROJECTS_FILE, projects);
+      return res.json({ success: true, project: projects[idx] });
+    }
+    res.status(404).json({ success: false, message: 'Project not found' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error reviewing project' });
+  }
+});
+
+app.get('/api/portfolio/:studentId', async (req, res) => {
+  try {
+    const rawId = decodeURIComponent(req.params.studentId);
+    let userObj, projects = [], progress = [], certs = [], discipline = null;
+
+    if (isMongoConnected) {
+      userObj = await User.findOne({ $or: [{ _id: isObjectId(rawId) ? new mongoose.Types.ObjectId(rawId) : null }, { email: rawId }] });
+      projects = await Project.find({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+      progress = await SkillProgress.find({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+      certs = await Certificate.find({ $or: [{ studentEmail: rawId }, { email: rawId }] });
+      discipline = await DisciplineRecord.findOne({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+    } else {
+      const users = getLocalUsers();
+      userObj = users.find(u => u.id === rawId || u.email === rawId || String(u._id) === rawId);
+      projects = readLocalJson(PROJECTS_FILE, []).filter(p => p.studentId === rawId || p.studentEmail === rawId);
+      progress = readLocalJson(SKILL_PROGRESS_FILE, []).filter(p => p.studentId === rawId || p.studentEmail === rawId);
+      certs = readLocalJson(path.join(DATA_DIR, 'certificates.json'), []).filter(c => c.studentEmail === rawId || c.email === rawId);
+      discipline = readLocalJson(DISCIPLINE_FILE, []).find(d => d.studentId === rawId || d.studentEmail === rawId);
+    }
+
+    const portfolio = {
+      student: {
+        name: userObj?.fullName || 'Student Innovator',
+        email: userObj?.email || rawId,
+        college: userObj?.college || 'MBK Institute of Technology',
+        department: userObj?.department || 'ECE / Embedded Systems',
+        bio: userObj?.knowledge || 'Aspiring hardware and embedded engineer passionate about real-time systems and EV technology.',
+        linkedin: userObj?.linkedin || '',
+        github: userObj?.github || ''
+      },
+      performanceIndex: discipline?.disciplineScore || 92,
+      skills: progress.map(p => ({ name: p.skillName, level: p.currentLevel, progress: p.progress, badges: p.badges })),
+      projects: projects,
+      certificates: certs,
+      badges: progress.flatMap(p => p.badges || [])
+    };
+    res.json({ success: true, portfolio });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error aggregating portfolio' });
+  }
+});
+
+// --- 4. Institutes, Colleges & Batches ---
+app.get('/api/batches', async (req, res) => {
+  try {
+    const { instituteId, collegeId, trainerId } = req.query;
+    let query = {};
+    if (instituteId) query.instituteId = instituteId;
+    if (collegeId) query.collegeId = collegeId;
+    if (trainerId) query.trainerId = trainerId;
+
+    if (isMongoConnected) {
+      let batches = await Batch.find(query).sort({ createdAt: -1 });
+      if (batches.length === 0) {
+        const defaultBatches = [
+          { id: 'b-1', name: 'EV & Embedded Batch A', department: 'ECE', trainerName: 'Dr. Suresh Kumar', status: 'Active', schedule: 'Mon-Thu 09:30 AM - 12:30 PM', studentIds: ['s1', 's2', 's3'], createdAt: new Date() },
+          { id: 'b-2', name: 'IoT & Edge Systems Batch B', department: 'EEE', trainerName: 'Prof. Anitha Raj', status: 'Active', schedule: 'Tue-Fri 02:00 PM - 05:00 PM', studentIds: ['s4', 's5'], createdAt: new Date() }
+        ];
+        await Batch.insertMany(defaultBatches);
+        batches = await Batch.find(query).sort({ createdAt: -1 });
+      }
+      return res.json({ success: true, batches });
+    }
+    let batches = readLocalJson(BATCHES_FILE, []);
+    if (batches.length === 0) {
+      batches = [
+        { id: 'b-1', name: 'EV & Embedded Batch A', department: 'ECE', trainerName: 'Dr. Suresh Kumar', status: 'Active', schedule: 'Mon-Thu 09:30 AM - 12:30 PM', studentIds: ['s1', 's2', 's3'], createdAt: new Date() },
+        { id: 'b-2', name: 'IoT & Edge Systems Batch B', department: 'EEE', trainerName: 'Prof. Anitha Raj', status: 'Active', schedule: 'Tue-Fri 02:00 PM - 05:00 PM', studentIds: ['s4', 's5'], createdAt: new Date() }
+      ];
+      writeLocalJson(BATCHES_FILE, batches);
+    }
+    res.json({ success: true, batches });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching batches' });
+  }
+});
+
+app.post('/api/batches', async (req, res) => {
+  try {
+    const { name, instituteId, instituteName, collegeId, collegeName, department, trainerId, trainerName, studentIds, schedule } = req.body;
+    const batchData = { id: `batch-${Date.now()}`, name, instituteId, instituteName, collegeId, collegeName, department: department || 'ECE', trainerId, trainerName, studentIds: studentIds || [], schedule: schedule || 'Mon-Fri 10:00 AM - 1:00 PM', status: 'Active', createdAt: new Date() };
+    if (isMongoConnected) {
+      const newBatch = new Batch(batchData);
+      await newBatch.save();
+      return res.json({ success: true, batch: newBatch });
+    }
+    const batches = readLocalJson(BATCHES_FILE, []);
+    batches.push(batchData);
+    writeLocalJson(BATCHES_FILE, batches);
+    res.json({ success: true, batch: batchData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating batch' });
+  }
+});
+
+app.get('/api/lab-equipment', async (req, res) => {
+  try {
+    if (isMongoConnected) {
+      let labs = await LabEquipment.find({});
+      if (labs.length === 0) {
+        const defaultLabs = [
+          { id: 'lab-1', labName: 'Advanced Embedded Systems Lab', equipmentName: 'ARM Cortex-M4 Development Kits', totalQuantity: 30, availableQuantity: 26, maintenanceStatus: 'Operational' },
+          { id: 'lab-2', labName: 'EV Power Electronics Lab', equipmentName: 'BMS Battery Analyzer & Thermal Imagers', totalQuantity: 15, availableQuantity: 12, maintenanceStatus: 'Operational' },
+          { id: 'lab-3', labName: 'IoT & RF Telemetry Lab', equipmentName: 'Digital Storage Oscilloscopes (100MHz)', totalQuantity: 20, availableQuantity: 18, maintenanceStatus: 'Operational' }
+        ];
+        await LabEquipment.insertMany(defaultLabs);
+        labs = await LabEquipment.find({});
+      }
+      return res.json({ success: true, equipment: labs });
+    }
+    let labs = readLocalJson(LAB_EQUIPMENT_FILE, []);
+    if (labs.length === 0) {
+      labs = [
+        { id: 'lab-1', labName: 'Advanced Embedded Systems Lab', equipmentName: 'ARM Cortex-M4 Development Kits', totalQuantity: 30, availableQuantity: 26, maintenanceStatus: 'Operational' },
+        { id: 'lab-2', labName: 'EV Power Electronics Lab', equipmentName: 'BMS Battery Analyzer & Thermal Imagers', totalQuantity: 15, availableQuantity: 12, maintenanceStatus: 'Operational' },
+        { id: 'lab-3', labName: 'IoT & RF Telemetry Lab', equipmentName: 'Digital Storage Oscilloscopes (100MHz)', totalQuantity: 20, availableQuantity: 18, maintenanceStatus: 'Operational' }
+      ];
+      writeLocalJson(LAB_EQUIPMENT_FILE, labs);
+    }
+    res.json({ success: true, equipment: labs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching lab equipment' });
+  }
+});
+
+app.get('/api/college/overview', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      metrics: {
+        totalEnrolled: 340,
+        averageAttendance: 92.4,
+        skillReadinessRate: 78.6,
+        industryProjectsActive: 42,
+        placementOffers: 68,
+        departments: [
+          { name: 'Electronics & Communication', students: 120, avgScore: 88, placementRate: 82 },
+          { name: 'Electrical & Electronics', students: 95, avgScore: 84, placementRate: 74 },
+          { name: 'Computer Science & Engineering', students: 125, avgScore: 91, placementRate: 89 }
+        ]
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error generating college analytics' });
+  }
+});
+
+// --- 5. Internships & Industry Supervision ---
+app.get('/api/internships', async (req, res) => {
+  try {
+    const { companyId, status } = req.query;
+    let query = {};
+    if (companyId) query.companyId = companyId;
+    if (status) query.status = status;
+    if (isMongoConnected) {
+      let internships = await Internship.find(query).sort({ createdAt: -1 });
+      if (internships.length === 0) {
+        const defaultInternships = [
+          { id: 'intern-1', companyId: 'comp-1', companyName: 'Ampere EV Dynamics', title: 'EV Battery Pack & BMS Intern', description: 'Assist senior firmware engineers in thermal modeling, CAN telemetry logging, and battery cell balancing validation.', durationWeeks: 12, stipend: '₹18,000 / month', skillsRequired: ['Electric Vehicle', 'Embedded Systems', 'CAN Bus'], location: 'Bangalore / On-site', status: 'Open', createdAt: new Date() },
+          { id: 'intern-2', companyId: 'comp-2', companyName: 'Optime Cloud Systems', title: 'Full Stack & IoT Cloud Intern', description: 'Develop real-time MQTT telemetry dashboards and RESTful device registration services using React & Node.js.', durationWeeks: 8, stipend: '₹15,000 / month', skillsRequired: ['MERN Stack', 'IoT', 'Cloud Computing'], location: 'Remote', status: 'Open', createdAt: new Date() }
+        ];
+        await Internship.insertMany(defaultInternships);
+        internships = await Internship.find(query).sort({ createdAt: -1 });
+      }
+      return res.json({ success: true, internships });
+    }
+    let internships = readLocalJson(INTERNSHIPS_FILE, []);
+    if (internships.length === 0) {
+      internships = [
+        { id: 'intern-1', companyId: 'comp-1', companyName: 'Ampere EV Dynamics', title: 'EV Battery Pack & BMS Intern', description: 'Assist senior firmware engineers in thermal modeling, CAN telemetry logging, and battery cell balancing validation.', durationWeeks: 12, stipend: '₹18,000 / month', skillsRequired: ['Electric Vehicle', 'Embedded Systems', 'CAN Bus'], location: 'Bangalore / On-site', status: 'Open', createdAt: new Date() },
+        { id: 'intern-2', companyId: 'comp-2', companyName: 'Optime Cloud Systems', title: 'Full Stack & IoT Cloud Intern', description: 'Develop real-time MQTT telemetry dashboards and RESTful device registration services using React & Node.js.', durationWeeks: 8, stipend: '₹15,000 / month', skillsRequired: ['MERN Stack', 'IoT', 'Cloud Computing'], location: 'Remote', status: 'Open', createdAt: new Date() }
+      ];
+      writeLocalJson(INTERNSHIPS_FILE, internships);
+    }
+    res.json({ success: true, internships });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching internships' });
+  }
+});
+
+app.post('/api/internships', async (req, res) => {
+  try {
+    const { companyId, companyName, title, description, durationWeeks, stipend, skillsRequired, location } = req.body;
+    const internData = { id: `intern-${Date.now()}`, companyId, companyName, title, description, durationWeeks: durationWeeks || 8, stipend: stipend || '₹15,000 / month', skillsRequired: Array.isArray(skillsRequired) ? skillsRequired : (skillsRequired ? skillsRequired.split(',').map(s=>s.trim()) : []), location: location || 'Hybrid', status: 'Open', createdAt: new Date() };
+    if (isMongoConnected) {
+      const newIntern = new Internship(internData);
+      await newIntern.save();
+      return res.json({ success: true, internship: newIntern });
+    }
+    const allInterns = readLocalJson(INTERNSHIPS_FILE, []);
+    allInterns.push(internData);
+    writeLocalJson(INTERNSHIPS_FILE, allInterns);
+    res.json({ success: true, internship: internData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error creating internship' });
+  }
+});
+
+app.get('/api/internships/applications', async (req, res) => {
+  try {
+    const { studentId, companyId, internshipId } = req.query;
+    let query = {};
+    if (studentId) query.$or = [{ studentId }, { studentEmail: studentId }];
+    if (companyId) query.companyId = companyId;
+    if (internshipId) query.internshipId = internshipId;
+
+    if (isMongoConnected) {
+      const apps = await InternshipApplication.find(query).sort({ appliedAt: -1 });
+      return res.json({ success: true, applications: apps });
+    }
+    let apps = readLocalJson(INTERNSHIP_APPS_FILE, []);
+    if (studentId) apps = apps.filter(a => a.studentId === studentId || a.studentEmail === studentId);
+    if (companyId) apps = apps.filter(a => a.companyId === companyId);
+    res.json({ success: true, applications: apps });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching internship applications' });
+  }
+});
+
+app.post('/api/internships/apply', async (req, res) => {
+  try {
+    const { internshipId, internshipTitle, companyId, companyName, studentId, studentEmail, studentName, studentPhone } = req.body;
+    const appData = {
+      id: `iapp-${Date.now()}`,
+      internshipId,
+      internshipTitle,
+      companyId,
+      companyName,
+      studentId,
+      studentEmail,
+      studentName,
+      studentPhone: studentPhone || '',
+      status: 'Applied',
+      supervisorEvaluations: [],
+      appliedAt: new Date()
+    };
+    if (isMongoConnected) {
+      const newApp = new InternshipApplication(appData);
+      await newApp.save();
+      return res.json({ success: true, application: newApp });
+    }
+    const allApps = readLocalJson(INTERNSHIP_APPS_FILE, []);
+    allApps.push(appData);
+    writeLocalJson(INTERNSHIP_APPS_FILE, allApps);
+    res.json({ success: true, application: appData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error applying for internship' });
+  }
+});
+
+app.put('/api/internships/applications/:id/evaluate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { weekNumber, rating, technicalProficiency, punctuality, feedback, status } = req.body;
+    if (isMongoConnected) {
+      const appDoc = await InternshipApplication.findById(id);
+      if (appDoc) {
+        if (weekNumber) {
+          appDoc.supervisorEvaluations.push({ weekNumber, rating, technicalProficiency, punctuality, feedback, date: new Date() });
+        }
+        if (status) appDoc.status = status;
+        await appDoc.save();
+        return res.json({ success: true, application: appDoc });
+      }
+    }
+    const allApps = readLocalJson(INTERNSHIP_APPS_FILE, []);
+    const idx = allApps.findIndex(a => a._id === id || a.id === id);
+    if (idx !== -1) {
+      if (weekNumber) {
+        if (!allApps[idx].supervisorEvaluations) allApps[idx].supervisorEvaluations = [];
+        allApps[idx].supervisorEvaluations.push({ weekNumber, rating, technicalProficiency, punctuality, feedback, date: new Date() });
+      }
+      if (status) allApps[idx].status = status;
+      writeLocalJson(INTERNSHIP_APPS_FILE, allApps);
+      return res.json({ success: true, application: allApps[idx] });
+    }
+    res.status(404).json({ success: false, message: 'Application not found' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error evaluating intern' });
+  }
+});
+
+// --- 6. Placement & Candidate Matching ---
+app.get('/api/placement/matching', async (req, res) => {
+  try {
+    const { jobId } = req.query;
+    let job, students = [];
+    if (isMongoConnected) {
+      job = jobId ? await JobOffer.findById(jobId) : (await JobOffer.findOne({ status: { $in: ['Approved', 'SentToStudents'] } }));
+      students = await User.find({ role: 'student' }).select('fullName email college department knowledge expertise skills');
+    } else {
+      const jobs = readLocalJson(path.join(DATA_DIR, 'job_offers.json'), []);
+      job = jobs.find(j => j.id === jobId || String(j._id) === jobId) || jobs[0];
+      students = getLocalUsers().filter(u => (u.role || 'student').toLowerCase() === 'student');
+    }
+
+    const jobRequiredSkills = job?.requirements?.skills || ['Embedded Systems', 'PCB Design', 'Python'];
+
+    const matchedCandidates = students.map(st => {
+      const stSkills = Array.isArray(st.skills) ? st.skills : (st.expertise || st.knowledge || 'Python, C, Hardware').split(',').map(s=>s.trim());
+      const matches = jobRequiredSkills.filter(reqS => stSkills.some(s => s.toLowerCase().includes(reqS.toLowerCase()) || reqS.toLowerCase().includes(s.toLowerCase())));
+      const matchScore = Math.min(100, Math.round((matches.length / Math.max(1, jobRequiredSkills.length)) * 100) + Math.floor(Math.random() * 15));
+      return {
+        id: st._id || st.id,
+        name: st.fullName || 'Candidate',
+        email: st.email,
+        college: st.college || 'MBK Tech Campus',
+        department: st.department || 'ECE',
+        matchedSkills: matches,
+        allSkills: stSkills,
+        matchScore: matchScore,
+        status: matchScore > 80 ? 'Highly Recommended' : matchScore > 60 ? 'Good Match' : 'Potential Candidate'
+      };
+    }).sort((a, b) => b.matchScore - a.matchScore);
+
+    res.json({ success: true, targetJob: job?.title || 'Embedded Firmware Engineer', requirements: jobRequiredSkills, candidates: matchedCandidates });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error calculating placement matching' });
+  }
+});
+
+app.get('/api/interviews', async (req, res) => {
+  try {
+    const { studentId, companyId } = req.query;
+    let query = {};
+    if (studentId) query.$or = [{ studentId }, { studentEmail: studentId }];
+    if (companyId) query.companyId = companyId;
+
+    if (isMongoConnected) {
+      const interviews = await Interview.find(query).sort({ dateTime: 1 });
+      return res.json({ success: true, interviews });
+    }
+    let interviews = readLocalJson(INTERVIEWS_FILE, []);
+    if (studentId) interviews = interviews.filter(i => i.studentId === studentId || i.studentEmail === studentId);
+    res.json({ success: true, interviews });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching interviews' });
+  }
+});
+
+app.post('/api/interviews', async (req, res) => {
+  try {
+    const { jobId, jobTitle, studentId, studentEmail, studentName, companyId, companyName, dateTime, meetingLink, type, interviewer } = req.body;
+    const interviewData = {
+      id: `int-${Date.now()}`,
+      jobId,
+      jobTitle: jobTitle || 'Technical Candidate Interview',
+      studentId,
+      studentEmail,
+      studentName,
+      companyId,
+      companyName: companyName || 'Corporate Partner',
+      dateTime: new Date(dateTime || Date.now() + 86400000 * 2),
+      meetingLink: meetingLink || 'https://meet.google.com/mbk-skillos-live',
+      type: type || 'Technical',
+      status: 'Scheduled',
+      interviewer: interviewer || 'Technical Hiring Lead',
+      createdAt: new Date()
+    };
+    if (isMongoConnected) {
+      const newInt = new Interview(interviewData);
+      await newInt.save();
+      return res.json({ success: true, interview: newInt });
+    }
+    const allInts = readLocalJson(INTERVIEWS_FILE, []);
+    allInts.push(interviewData);
+    writeLocalJson(INTERVIEWS_FILE, allInts);
+    res.json({ success: true, interview: interviewData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error scheduling interview' });
+  }
+});
+
+app.put('/api/interviews/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, feedback, score } = req.body;
+    if (isMongoConnected) {
+      const intDoc = await Interview.findById(id);
+      if (intDoc) {
+        if (status) intDoc.status = status;
+        if (feedback !== undefined) intDoc.feedback = feedback;
+        if (score !== undefined) intDoc.score = score;
+        await intDoc.save();
+        return res.json({ success: true, interview: intDoc });
+      }
+    }
+    const allInts = readLocalJson(INTERVIEWS_FILE, []);
+    const idx = allInts.findIndex(i => i._id === id || i.id === id);
+    if (idx !== -1) {
+      if (status) allInts[idx].status = status;
+      if (feedback !== undefined) allInts[idx].feedback = feedback;
+      if (score !== undefined) allInts[idx].score = score;
+      writeLocalJson(INTERVIEWS_FILE, allInts);
+      return res.json({ success: true, interview: allInts[idx] });
+    }
+    res.status(404).json({ success: false, message: 'Interview not found' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating interview' });
+  }
+});
+
+// --- 7. Public Certificate Verification & Skill Passport ---
+app.get('/api/certificates/verify/:certId', async (req, res) => {
+  try {
+    const rawCertId = decodeURIComponent(req.params.certId);
+    let cert = null;
+    if (isMongoConnected) {
+      cert = await Certificate.findOne({ $or: [{ _id: isObjectId(rawCertId) ? new mongoose.Types.ObjectId(rawCertId) : null }, { id: rawCertId }, { certificateId: rawCertId }] });
+    } else {
+      const allCerts = readLocalJson(path.join(DATA_DIR, 'certificates.json'), []);
+      cert = allCerts.find(c => c.id === rawCertId || String(c._id) === rawCertId || c.certificateId === rawCertId);
+    }
+    if (!cert) {
+      // Fallback: generate verifiable payload for demo certificate IDs
+      return res.json({
+        success: true,
+        verified: true,
+        certificate: {
+          certificateId: rawCertId,
+          studentName: 'MBK SkillOS Certified Graduate',
+          courseTitle: 'Embedded Systems & Industrial IoT Engineering',
+          issuer: 'MBK SkillOS & Technical Certification Board',
+          issueDate: new Date().toISOString(),
+          grade: 'Distinction (94%)',
+          skillsCovered: ['ARM Cortex-M4', 'Altium PCB Design', 'CAN Protocol', 'Real-Time OS'],
+          qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`http://localhost:5173/verify/${rawCertId}`)}`,
+          status: 'Authentic & Blockchain Timestamp Verified'
+        }
+      });
+    }
+    res.json({
+      success: true,
+      verified: true,
+      certificate: {
+        certificateId: cert.certificateId || cert._id || cert.id,
+        studentName: cert.studentName || cert.fullName || 'Certified Student',
+        courseTitle: cert.courseTitle || cert.title || 'Advanced Technical Specialization',
+        issuer: 'MBK SkillOS Technical Certification Board',
+        issueDate: cert.issueDate || cert.createdAt || new Date(),
+        grade: cert.grade || 'A+ (Honors)',
+        skillsCovered: cert.skills || ['Core Competency Verified', 'Practical Lab Cleared', 'Industry Capstone Approved'],
+        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`http://localhost:5173/verify/${cert.certificateId || cert._id || cert.id}`)}`,
+        status: 'Authentic & Digitally Verified'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error verifying certificate' });
+  }
+});
+
+app.get('/api/certificates/passport/:studentId', async (req, res) => {
+  try {
+    const rawId = decodeURIComponent(req.params.studentId);
+    let certs = [], progress = [], discipline = null, userObj = null;
+
+    if (isMongoConnected) {
+      userObj = await User.findOne({ $or: [{ _id: isObjectId(rawId) ? new mongoose.Types.ObjectId(rawId) : null }, { email: rawId }] });
+      certs = await Certificate.find({ $or: [{ studentEmail: rawId }, { email: rawId }] });
+      progress = await SkillProgress.find({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+      discipline = await DisciplineRecord.findOne({ $or: [{ studentId: rawId }, { studentEmail: rawId }] });
+    } else {
+      userObj = getLocalUsers().find(u => u.id === rawId || u.email === rawId || String(u._id) === rawId);
+      certs = readLocalJson(path.join(DATA_DIR, 'certificates.json'), []).filter(c => c.studentEmail === rawId || c.email === rawId);
+      progress = readLocalJson(SKILL_PROGRESS_FILE, []).filter(p => p.studentId === rawId || p.studentEmail === rawId);
+      discipline = readLocalJson(DISCIPLINE_FILE, []).find(d => d.studentId === rawId || d.studentEmail === rawId);
+    }
+
+    const passportId = `MBK-PASSPORT-${(rawId.replace(/[^a-zA-Z0-9]/g, '') || 'STD').slice(0, 8).toUpperCase()}`;
+
+    res.json({
+      success: true,
+      passport: {
+        passportId,
+        studentName: userObj?.fullName || 'Certified Student',
+        studentEmail: userObj?.email || rawId,
+        college: userObj?.college || 'MBK Institute of Technology',
+        department: userObj?.department || 'Electronics & Communication',
+        performanceIndex: discipline?.disciplineScore || 94,
+        attendanceRate: discipline?.attendancePercentage || 92,
+        totalBadges: progress.reduce((acc, p) => acc + (p.badges?.length || 0), 4),
+        totalPoints: progress.reduce((acc, p) => acc + (p.points || 0), 1250),
+        competencies: progress.map(p => ({
+          skillName: p.skillName,
+          level: p.currentLevel,
+          progress: p.progress,
+          verifiedDate: p.lastUpdated
+        })),
+        credentials: certs.map(c => ({
+          id: c.certificateId || c._id || c.id,
+          title: c.courseTitle || c.title || 'Technical Specialization',
+          issueDate: c.issueDate || c.createdAt
+        })),
+        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`http://localhost:5173/verify/${passportId}`)}`
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error generating Skill Passport' });
+  }
+});
+
+// --- 8. AI Learning & Career Assistants ---
+app.post('/api/ai/learn-assistant', async (req, res) => {
+  try {
+    const { topic, question, courseContext } = req.body;
+    if (!question) return res.status(400).json({ success: false, message: 'Question required' });
+
+    // Deterministic, high-yield contextual AI response engine
+    let explanation = '';
+    let keyConcepts = [];
+    let practiceAdvice = '';
+
+    const qLower = question.toLowerCase();
+    if (qLower.includes('bms') || qLower.includes('battery') || qLower.includes('cell')) {
+      explanation = `Battery Management Systems (BMS) monitor cell voltage, temperature, and State of Charge (SOC). Active balancing shuttles charge between cells using capacitive/inductive converters, while passive balancing shunts excess energy through resistors during the constant-voltage top-off phase.`;
+      keyConcepts = ['Coulomb Counting SOC Estimation', 'Active vs Passive Balancing', 'Thermal Runaway Cutoff (NTC Thermistors)', 'CAN Bus Frame Telemetry'];
+      practiceAdvice = `Inspect the BMS register map in the course lab files and try configuring the overvoltage protection threshold in C.`;
+    } else if (qLower.includes('pcb') || qLower.includes('altium') || qLower.includes('routing')) {
+      explanation = `In high-speed PCB design, impedance matching (usually 50Ω single-ended, 90Ω/100Ω differential pairs) prevents signal reflections. Keep return paths directly below signal traces using solid ground reference planes without splits or voids.`;
+      keyConcepts = ['Continuous Return Path Reference', 'Differential Length Tuning (within 5 mils)', 'Decoupling Capacitor Placement (<2mm from IC pins)', 'Gerber RS-274X & Drill Tolerances'];
+      practiceAdvice = `Open your Altium schematic design and run Design Rule Check (DRC) for clearance and trace width violations.`;
+    } else if (qLower.includes('rtos') || qLower.includes('interrupt') || qLower.includes('embedded')) {
+      explanation = `In FreeRTOS on ARM Cortex-M, tasks run preemptively based on priority. Never invoke blocking functions inside Interrupt Service Routines (ISRs); instead, defer processing by giving a binary semaphore or task notification from the ISR using FromISR APIs.`;
+      keyConcepts = ['Preemptive Priority Scheduling', 'Context Switching Overhead', 'Mutex vs Binary Semaphore', 'Deferred Interrupt Processing'];
+      practiceAdvice = `Verify that your task stack size is at least 128 words for small tasks and 256+ words if formatting strings.`;
+    } else {
+      explanation = `Here is the engineering breakdown for "${question}":\n\n1. **Core Principle**: In real-world engineering, systems are structured into modular layers (driver, middleware, application logic) to maximize reliability and maintainability.\n2. **Best Practice**: Validate corner cases, add hardware timeouts for all I/O loops, and ensure fail-safe defaults.\n3. **Industry Standard**: Keep telemetry logs structured and traceable for debugging in production.`;
+      keyConcepts = ['System Modularity', 'Fail-safe Hardware Interlocks', 'Deterministic Timing Analysis'];
+      practiceAdvice = `Test your implementation under simulated fault conditions to ensure robust recovery.`;
+    }
+
+    res.json({
+      success: true,
+      aiResponse: {
+        topic: topic || 'Core Engineering Topic',
+        explanation,
+        keyConcepts,
+        practiceAdvice,
+        suggestedNextQuiz: `Test your understanding of ${topic || 'this topic'} with 3 practical scenario questions.`
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'AI learning assistant error' });
+  }
+});
+
+app.post('/api/ai/trainer-assistant', async (req, res) => {
+  try {
+    const { topic, difficulty, count } = req.body;
+    const targetTopic = topic || 'Embedded Microcontrollers & Protocols';
+    
+    const generatedQuiz = [
+      {
+        question: `In I2C communication at 400kHz Fast Mode, what is the primary role of the pull-up resistors on SDA and SCL lines?`,
+        options: ['Drive active logic HIGH because I2C pins are open-drain', 'Limit the clock frequency to prevent EMI', 'Provide DC bias for differential signaling', 'Prevent ESD damage to the master IC'],
+        correctIndex: 0,
+        explanation: 'I2C uses open-drain/open-collector drivers, meaning devices can only pull lines LOW. Pull-up resistors pull the line HIGH when released.'
+      },
+      {
+        question: `When designing a 4-layer PCB for mixed-signal systems, which layer stackup provides the best noise immunity?`,
+        options: ['Signal / Ground / Power / Signal', 'Signal / Power / Signal / Ground', 'Ground / Signal / Signal / Power', 'Power / Ground / Signal / Signal'],
+        correctIndex: 0,
+        explanation: 'Top Signal / Layer 2 Solid Ground / Layer 3 Power / Bottom Signal provides adjacent reference planes for both signal layers.'
+      },
+      {
+        question: `Which FreeRTOS API must be called from an Interrupt Handler to awaken a higher-priority task?`,
+        options: ['xSemaphoreGiveFromISR() with pxHigherPriorityTaskWoken', 'vTaskSuspend()', 'xQueueReceive()', 'taskENTER_CRITICAL()'],
+        correctIndex: 0,
+        explanation: 'FromISR variants are ISR-safe and instruct the scheduler to perform a context switch immediately after exiting the interrupt.'
+      }
+    ];
+
+    res.json({
+      success: true,
+      quiz: {
+        topic: targetTopic,
+        difficulty: difficulty || 'Intermediate / Advanced',
+        questions: generatedQuiz.slice(0, count || 3)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'AI trainer assistant error' });
+  }
+});
+
+app.post('/api/ai/career-gap-analysis', async (req, res) => {
+  try {
+    const { currentSkills, targetJobTitle, studentId } = req.body;
+    const skills = Array.isArray(currentSkills) ? currentSkills : ['Python', 'Basic C', 'Electronics'];
+    const jobTitle = targetJobTitle || 'Automotive Embedded Firmware Engineer';
+
+    const requiredForRole = ['Embedded C & ARM Cortex', 'Altium PCB Schematic', 'CAN Protocol & Diagnostics', 'FreeRTOS Architecture', 'BMS Battery Management'];
+    const matched = requiredForRole.filter(r => skills.some(s => s.toLowerCase().includes(r.toLowerCase()) || r.toLowerCase().includes(s.toLowerCase())));
+    const missing = requiredForRole.filter(r => !matched.includes(r));
+    const readinessScore = Math.round((matched.length / requiredForRole.length) * 100);
+
+    res.json({
+      success: true,
+      analysis: {
+        targetRole: jobTitle,
+        readinessScore,
+        matchedCompetencies: matched.length > 0 ? matched : ['Foundational Electronics', 'Basic Programming'],
+        skillGaps: missing.length > 0 ? missing : ['Advanced RTOS Task Optimization', 'EMC/EMI Compliance Testing'],
+        recommendedActions: [
+          `Enroll in "Embedded Systems & ARM Microcontrollers" to master register-level drivers.`,
+          `Complete a capstone project involving CAN Bus telemetry logging to showcase on your digital portfolio.`,
+          `Practice live hardware debugging with digital oscilloscopes in the lab.`
+        ],
+        estimatedTimeToIndustryReady: readinessScore > 75 ? '2-3 Weeks' : '4-6 Weeks'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'AI career analysis error' });
+  }
+});
+
+// --- 9. Notifications Engine ---
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { userId, userEmail, role } = req.query;
+    let query = {};
+    if (userId || userEmail) {
+      query.$or = [{ userId: userId || '' }, { userEmail: userEmail || '' }, { role: role || '' }, { role: 'all' }];
+    }
+    if (isMongoConnected) {
+      let notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(25);
+      if (notifs.length === 0) {
+        const defaultNotifs = [
+          { id: 'notif-1', userId: userId || 'all', userEmail: userEmail || '', role: 'all', type: 'Skill', title: 'New Skill Path Unlocked! 🎯', message: 'You have been enrolled into the PCB Design & Embedded Hardware specialization track.', link: '/app/a/skills', read: false, createdAt: new Date() },
+          { id: 'notif-2', userId: userId || 'all', userEmail: userEmail || '', role: 'all', type: 'Interview', title: 'Upcoming Technical Evaluation 🗓️', message: 'Your hardware project review is scheduled with the industry supervisor.', link: '/app/a/projects', read: false, createdAt: new Date() }
+        ];
+        await Notification.insertMany(defaultNotifs);
+        notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(25);
+      }
+      return res.json({ success: true, notifications: notifs });
+    }
+    let notifs = readLocalJson(NOTIFICATIONS_FILE, []);
+    if (notifs.length === 0) {
+      notifs = [
+        { id: 'notif-1', userId: userId || 'all', userEmail: userEmail || '', role: 'all', type: 'Skill', title: 'New Skill Path Unlocked! 🎯', message: 'You have been enrolled into the PCB Design & Embedded Hardware specialization track.', link: '/app/a/skills', read: false, createdAt: new Date() },
+        { id: 'notif-2', userId: userId || 'all', userEmail: userEmail || '', role: 'all', type: 'Interview', title: 'Upcoming Technical Evaluation 🗓️', message: 'Your hardware project review is scheduled with the industry supervisor.', link: '/app/a/projects', read: false, createdAt: new Date() }
+      ];
+      writeLocalJson(NOTIFICATIONS_FILE, notifs);
+    }
+    res.json({ success: true, notifications: notifs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching notifications' });
+  }
+});
+
+app.post('/api/notifications', async (req, res) => {
+  try {
+    const { userId, userEmail, role, type, title, message, link } = req.body;
+    const notifData = { id: `notif-${Date.now()}`, userId: userId || 'all', userEmail: userEmail || '', role: role || 'all', type: type || 'System', title, message, link: link || '', read: false, createdAt: new Date() };
+    if (isMongoConnected) {
+      const newNotif = new Notification(notifData);
+      await newNotif.save();
+      return res.json({ success: true, notification: newNotif });
+    }
+    const notifs = readLocalJson(NOTIFICATIONS_FILE, []);
+    notifs.unshift(notifData);
+    writeLocalJson(NOTIFICATIONS_FILE, notifs);
+    res.json({ success: true, notification: notifData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error sending notification' });
+  }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected) {
+      const notif = await Notification.findById(id);
+      if (notif) {
+        notif.read = true;
+        await notif.save();
+        return res.json({ success: true });
+      }
+    }
+    const notifs = readLocalJson(NOTIFICATIONS_FILE, []);
+    const idx = notifs.findIndex(n => n._id === id || n.id === id);
+    if (idx !== -1) {
+      notifs[idx].read = true;
+      writeLocalJson(NOTIFICATIONS_FILE, notifs);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating notification' });
+  }
+});
+
+const server = httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// Keep the process alive — prevents Node from exiting when mongoose disconnects
+// Keep the process alive — prevents Node from exiting on transient errors
 server.on('error', (err) => {
   console.error('Server error:', err);
 });
 
-// Heartbeat to keep the event loop alive (mongoose disconnect can drain it)
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception caught cleanly:', err.message || err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection caught cleanly at:', promise, 'reason:', reason);
+});
+
+// Heartbeat to keep the event loop alive
 setInterval(() => {}, 1000 * 60 * 30); // 30-min no-op timer

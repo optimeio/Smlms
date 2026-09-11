@@ -2,33 +2,61 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../state/useAuth';
 
 export default function CoursePlayer() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { user: authUser, updateUser } = useAuth();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [progress, setProgress] = useState([]); // Array of completed module indices
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Effective user object from context or localStorage fallback
+  const user = authUser || JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user.email || user.id || user._id;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch course
-        const coursesRes = await fetch('/api/courses');
-        const coursesData = await coursesRes.json();
-        if (coursesData.success) {
-          const foundCourse = coursesData.courses.find(c => c._id === courseId || c.id === courseId || c.title === decodeURIComponent(courseId));
-          setCourse(foundCourse);
+        const decodedId = decodeURIComponent(courseId || '');
+
+        // Fetch courses from both standard catalog and approved company courses
+        const [coursesRes, companyCoursesRes] = await Promise.all([
+          fetch('/api/courses'),
+          fetch('/api/company-courses?status=approved')
+        ]);
+        const coursesData = coursesRes.ok ? await coursesRes.json() : { success: false, courses: [] };
+        const companyCoursesData = companyCoursesRes.ok ? await companyCoursesRes.json() : { success: false, courses: [] };
+
+        let allCourses = [];
+        if (coursesData.success && Array.isArray(coursesData.courses)) {
+          allCourses = [...allCourses, ...coursesData.courses];
+        }
+        if (companyCoursesData.success && Array.isArray(companyCoursesData.courses)) {
+          allCourses = [...allCourses, ...companyCoursesData.courses];
         }
 
-        // Fetch progress
-        const progRes = await fetch(`/api/users/${user.email || user.id || user._id}/progress/${encodeURIComponent(courseId)}`);
-        const progData = await progRes.json();
-        if (progData.success) {
-          setProgress(progData.progress || []);
+        const foundCourse = allCourses.find(c => 
+          String(c._id) === courseId || 
+          String(c.id) === courseId || 
+          c.title === decodedId ||
+          c.title?.toLowerCase() === decodedId?.toLowerCase()
+        );
+        setCourse(foundCourse || null);
+
+        // Fetch progress from backend
+        if (userId) {
+          const progRes = await fetch(`/api/users/${encodeURIComponent(userId)}/progress/${encodeURIComponent(courseId)}`);
+          const progData = await progRes.json();
+          if (progData.success && Array.isArray(progData.progress)) {
+            setProgress(progData.progress);
+          } else if (user?.courseProgress?.[courseId] || user?.courseProgress?.[foundCourse?.title]) {
+            const localP = user.courseProgress[courseId] || user.courseProgress[foundCourse?.title];
+            if (Array.isArray(localP)) setProgress(localP);
+          }
         }
       } catch (err) {
         console.error('Failed to load course player data:', err);
@@ -36,30 +64,73 @@ export default function CoursePlayer() {
         setLoading(false);
       }
     };
-    if (courseId && (user.email || user.id || user._id)) {
+
+    if (courseId && userId) {
       fetchData();
     }
-  }, [courseId, user.email, user.id, user._id]);
+  }, [courseId, userId]);
 
-  const toggleModuleComplete = async (idx) => {
+  // Generate dynamic modules based on course uploads/attributes
+  const modules = [];
+  if (course) {
+    if (course.video) {
+      modules.push({ type: 'video', title: course.videoName || 'Video Lecture & Theory', url: course.video, duration: course.duration || 'Video' });
+    }
+    if (course.ppt) {
+      modules.push({ type: 'ppt', title: course.pptName || 'Presentation & Course Notes', url: course.ppt, duration: 'Document' });
+    }
+    if (course.modules && Array.isArray(course.modules) && course.modules.length > 0) {
+      course.modules.forEach(m => modules.push(m));
+    }
+    if (modules.length === 0) {
+      modules.push({ type: 'text', title: 'Course Content & Syllabus', content: course.content || course.description || 'No media available for this course.', duration: 'Reading' });
+    }
+  }
+
+  const saveProgressToBackend = async (newProgress) => {
+    setProgress(newProgress);
+    if (!userId) return;
+
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(userId)}/progress/${encodeURIComponent(courseId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progress: newProgress })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        updateUser(data.user);
+      } else {
+        // Update local user state fallback
+        const updatedProgressObj = { ...(user.courseProgress || {}), [courseId]: newProgress };
+        if (course?.title) updatedProgressObj[course.title] = newProgress;
+        const updatedUserData = { ...user, courseProgress: updatedProgressObj };
+        if (newProgress.length >= modules.length && course?.title) {
+          const completed = user.completedCourses || [];
+          if (!completed.includes(course.title)) {
+            updatedUserData.completedCourses = [...completed, course.title];
+          }
+        }
+        updateUser(updatedUserData);
+      }
+    } catch (err) {
+      console.error('Failed to save progress:', err);
+    }
+  };
+
+  const toggleModuleComplete = (idx) => {
     let newProgress;
     if (progress.includes(idx)) {
       newProgress = progress.filter(i => i !== idx);
     } else {
       newProgress = [...progress, idx];
     }
-    setProgress(newProgress);
+    saveProgressToBackend(newProgress);
+  };
 
-    // Save to backend
-    try {
-      await fetch(`/api/users/${user.email || user.id || user._id}/progress/${encodeURIComponent(courseId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ progress: newProgress })
-      });
-    } catch (err) {
-      console.error('Failed to save progress:', err);
-    }
+  const markAllModulesComplete = () => {
+    const allIndices = modules.map((_, idx) => idx);
+    saveProgressToBackend(allIndices);
   };
 
   const generateCertificate = () => {
@@ -120,25 +191,13 @@ export default function CoursePlayer() {
     return (
       <div style={{ padding: '50px', textAlign: 'center' }}>
         <h2>Course not found</h2>
-        <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#005F7A', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>Go Back</button>
+        <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#005F7A', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer', marginTop: 12 }}>Go Back</button>
       </div>
     );
   }
 
-  // Generate dynamic modules based on course uploads
-  const modules = [];
-  if (course.video) {
-    modules.push({ type: 'video', title: course.videoName || 'Video Lecture', url: course.video, duration: course.duration || 'Video' });
-  }
-  if (course.ppt) {
-    modules.push({ type: 'ppt', title: course.pptName || 'Course Presentation', url: course.ppt, duration: 'Document' });
-  }
-  if (modules.length === 0) {
-    modules.push({ type: 'text', title: 'Course Content', content: course.content || 'No media available for this course.', duration: 'Reading' });
-  }
-
-  const activeModule = modules[activeModuleIndex] || modules[0];
-  const completionPercentage = Math.round((progress.length / modules.length) * 100);
+  const activeModule = modules[activeModuleIndex] || modules[0] || {};
+  const completionPercentage = modules.length > 0 ? Math.min(Math.round((progress.length / modules.length) * 100), 100) : 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f1f5f9' }}>
@@ -166,6 +225,16 @@ export default function CoursePlayer() {
               />
             </div>
           </div>
+
+          {completionPercentage < 100 && (
+            <button
+              onClick={markAllModulesComplete}
+              style={{ background: '#f1f5f9', color: '#005F7A', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
+            >
+              Complete All Modules
+            </button>
+          )}
+
           {completionPercentage === 100 && (
             <motion.button 
               initial={{ scale: 0.8, opacity: 0 }}
@@ -215,14 +284,14 @@ export default function CoursePlayer() {
           <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', color: '#0f172a' }}>{activeModule.title}</h3>
-              <p style={{ margin: 0, color: '#64748b' }}>{activeModule.type === 'video' ? 'Watch the video lecture completely.' : 'Review the attached document.'}</p>
+              <p style={{ margin: 0, color: '#64748b' }}>{activeModule.type === 'video' ? 'Watch the video lecture completely.' : 'Review the attached document and syllabus.'}</p>
             </div>
             {!progress.includes(activeModuleIndex) ? (
               <button 
                 onClick={() => toggleModuleComplete(activeModuleIndex)}
                 style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
               >
-                Mark as Complete
+                Mark Module Complete
               </button>
             ) : (
               <button 
@@ -238,8 +307,8 @@ export default function CoursePlayer() {
         {/* Sidebar */}
         <div style={{ width: '350px', background: '#fff', borderLeft: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Course Content</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>{modules.length} Modules</p>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Course Modules</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>{modules.length} Modules ({progress.length} completed)</p>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {modules.map((mod, idx) => {
@@ -289,4 +358,3 @@ export default function CoursePlayer() {
     </div>
   );
 }
-

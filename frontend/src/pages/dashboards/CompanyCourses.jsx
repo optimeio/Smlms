@@ -28,8 +28,9 @@ export default function CompanyCourses() {
   const fetchProposedCourses = async () => {
     try {
       const compRes = await fetch('/api/company-courses');
+      if (!compRes.ok) return;
       const compData = await compRes.json();
-      if (compData.success) {
+      if (compData.success && Array.isArray(compData.courses)) {
         setCompanyCourses(compData.courses.filter(c => c.companyName === (user?.companyName || user?.fullName)));
       }
     } catch (err) {
@@ -40,13 +41,12 @@ export default function CompanyCourses() {
   useEffect(() => {
     const fetchAllCourses = async () => {
       try {
-        const [res] = await Promise.all([
-          fetch('/api/courses')
-        ]);
-        const data = await res.json();
-        
-        if (data.success) {
-          setCourses(data.courses);
+        const res = await fetch('/api/courses');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.courses)) {
+            setCourses(data.courses);
+          }
         }
         await fetchProposedCourses();
       } catch (err) {

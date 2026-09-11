@@ -6,7 +6,7 @@ import { PremiumPage, PageHeader, GlassCard, GradientButton, Badge, EmptyState, 
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function StudentCourses() {
-  const { user, login } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,12 +14,30 @@ export default function StudentCourses() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [showSyllabusModal, setShowSyllabusModal] = useState(false);
 
+  // Sync fresh profile on mount
+  useEffect(() => {
+    const syncProfile = async () => {
+      const uId = user?.email || user?.id || user?._id;
+      if (!uId) return;
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(uId)}`);
+        const data = await res.json();
+        if (data.success && data.user) {
+          updateUser(data.user);
+        }
+      } catch (err) {}
+    };
+    syncProfile();
+  }, []);
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         const res = await fetch('/api/courses');
-        const data = await res.json();
-        if (data.success) setCourses(data.courses);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.courses)) setCourses(data.courses);
+        }
       } catch (err) {
         console.error('Failed to fetch courses:', err);
       } finally {
@@ -29,21 +47,65 @@ export default function StudentCourses() {
     fetchCourses();
   }, []);
 
-  const activeCourses = courses.filter(c => user?.assignedCourses?.includes(c._id || c.id) || false);
+  const calculateCourseProgress = (course) => {
+    if (!course || !user) return 0;
+    if (user?.completedCourses?.includes(course.title)) return 100;
+
+    const p = 
+      user?.courseProgress?.[course._id] ??
+      user?.courseProgress?.[course.id] ??
+      user?.courseProgress?.[course.title] ??
+      user?.courseProgress?.[String(course._id)] ??
+      user?.courseProgress?.[String(course.id)];
+
+    if (typeof p === 'number') {
+      return Math.min(Math.max(Math.round(p), 0), 100);
+    }
+
+    if (Array.isArray(p)) {
+      let total = 0;
+      if (course.video) total++;
+      if (course.ppt) total++;
+      if (course.content && total === 0) total++;
+      if (course.modules && course.modules.length > 0) total = course.modules.length;
+      total = Math.max(total, 1);
+      return Math.min(Math.round((p.length / total) * 100), 100);
+    }
+    return 0;
+  };
+
+  const activeMatched = courses.filter(c => 
+    user?.assignedCourses?.includes(c.title) ||
+    user?.assignedCourses?.includes(c._id?.toString()) || 
+    user?.assignedCourses?.includes(c.id) || 
+    user?.assignedCourses?.includes(String(c.id)) || 
+    user?.purchasedCourses?.includes(c._id?.toString()) ||
+    user?.purchasedCourses?.includes(c.title) ||
+    false
+  );
+
+  // Deduplicate active courses by unique title/id
+  const activeCourses = [];
+  const seenActive = new Set();
+  for (const c of activeMatched) {
+    const key = c.title?.toLowerCase().trim() || c._id || c.id;
+    if (!seenActive.has(key)) {
+      seenActive.add(key);
+      activeCourses.push(c);
+    }
+  }
   const availableCourses = courses;
 
   const handleCompleteCourse = async (courseTitle) => {
     try {
-      const res = await fetch(`/api/users/${user._id || user.id || user.email}/complete-course`, {
+      const res = await fetch(`/api/users/${encodeURIComponent(user._id || user.id || user.email)}/complete-course`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseTitle })
       });
       const data = await res.json();
-      if (data.success) {
-        const updatedUser = { ...user, completedCourses: data.user.completedCourses };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        window.location.reload();
+      if (data.success && data.user) {
+        updateUser(data.user);
       }
     } catch (err) {
       console.error('Failed to complete course:', err);
@@ -54,7 +116,7 @@ export default function StudentCourses() {
     try {
       const amount = course.price ? parseInt(course.price.toString().replace(/[^0-9]/g, ''), 10) : 999;
       
-      const orderRes = await fetch('http://localhost:5001/api/payment/orders', {
+      const orderRes = await fetch('/api/payment/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount })
@@ -74,7 +136,7 @@ export default function StudentCourses() {
         description: `Enrollment for ${course.title}`,
         order_id: orderData.order.id,
         handler: async function (response) {
-          const verifyRes = await fetch('http://localhost:5001/api/payment/verify', {
+          const verifyRes = await fetch('/api/payment/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(response)
@@ -82,15 +144,14 @@ export default function StudentCourses() {
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
             alert('Payment Successful! You are now enrolled.');
-            const enrollRes = await fetch(`http://localhost:5001/api/users/${user._id || user.id || user.email}/enroll`, {
+            const enrollRes = await fetch(`/api/users/${encodeURIComponent(user._id || user.id || user.email)}/enroll`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ courseId: course._id || course.id })
             });
             const enrollData = await enrollRes.json();
             if (enrollData.success) {
-              const updatedUser = { ...user, assignedCourses: enrollData.user.assignedCourses };
-              localStorage.setItem('user', JSON.stringify(updatedUser));
+              updateUser(enrollData.user);
               window.location.reload();
             }
           } else {
@@ -98,21 +159,20 @@ export default function StudentCourses() {
           }
         },
         prefill: {
-          name: user?.fullName || "",
-          email: user?.email || "",
-          contact: user?.phone || ""
+          name: user?.fullName || "Student",
+          email: user?.email || "student@example.com",
+          contact: user?.phone || "9999999999"
         },
-        theme: { color: "#5B5CFF" }
+        theme: {
+          color: "#005F7A"
+        }
       };
       
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response){
-        alert(response.error.description);
-      });
-      rzp.open();
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
     } catch (err) {
-      console.error('Payment Error:', err);
-      alert('An error occurred during payment processing.');
+      console.error('Enrollment error:', err);
+      alert('Error initiating checkout. Please try again.');
     }
   };
 
@@ -121,29 +181,20 @@ export default function StudentCourses() {
     : availableCourses;
 
   const gradients = [
-    ['#5B5CFF', '#7C5CFF'], ['#FF5C8A', '#FF758C'], ['#4F8CFF', '#00C6FF'],
-    ['#22C55E', '#43E97B'], ['#F59E0B', '#FFC837'], ['#8B5CF6', '#A78BFA'],
+    ['#5B5CFF', '#00C6FF'],
+    ['#FF5C8A', '#FF9A8B'],
+    ['#4F8CFF', '#38EF7D'],
+    ['#FF8C38', '#F59E0B'],
+    ['#8B5CF6', '#EC4899'],
+    ['#10B981', '#06B6D4'],
   ];
 
   return (
     <PremiumPage>
       <PageHeader
-        title="My Courses"
-        subtitle="View your active enrolled courses and browse new courses to register."
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: P.inkMute }} />
-              <input
-                type="text"
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ padding: '10px 14px 10px 40px', borderRadius: 12, border: `1px solid ${P.border}`, fontSize: 14, width: 260, outline: 'none', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', color: P.ink, fontFamily: P.font }}
-              />
-            </div>
-          </div>
-        }
+        title="My Learning Programs"
+        emoji="🎓"
+        subtitle="Access your enrolled courses, launch interactive modules, and track your completion progress."
       />
 
       {loading ? (
@@ -159,7 +210,8 @@ export default function StudentCourses() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
               {activeCourses.length > 0 ? activeCourses.map((course, idx) => {
                 const [gFrom, gTo] = gradients[idx % gradients.length];
-                const isCompleted = user?.completedCourses?.includes(course.title);
+                const pct = calculateCourseProgress(course);
+                const isCompleted = pct === 100 || user?.completedCourses?.includes(course.title);
                 return (
                   <GlassCard key={course._id || course.id} style={{ padding: 0, overflow: 'hidden' }}>
                     <div style={{ height: 180, background: course.image ? 'transparent' : `linear-gradient(135deg, ${gFrom}22, ${gTo}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -176,33 +228,20 @@ export default function StudentCourses() {
                     <div style={{ padding: 24 }}>
                       <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: P.ink }}>{course.title}</h3>
                       <p style={{ margin: '0 0 16px', fontSize: 13, color: P.inkSoft }}>{course.category || 'General'}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <span style={{ fontSize: 22, fontWeight: 900, color: P.ink }}>₹{course.price || '999'}</span>
-                        <span style={{ fontSize: 14, color: P.inkMute, textDecoration: 'line-through' }}>₹{course.originalPrice || '4999'}</span>
-                      </div>
                       
                       {/* Dynamic Progress Bar */}
                       <div style={{ marginBottom: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, fontWeight: 600, color: P.inkMute }}>
                           <span>Course Progress</span>
-                          <span style={{ color: P.blue }}>
-                            {(() => {
-                               const progressArr = user?.courseProgress?.[course._id || course.id] || [];
-                               const totalModules = course.modules?.length || 1;
-                               const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
-                               return `${Math.min(pct, 100)}%`;
-                            })()}
+                          <span style={{ color: isCompleted ? '#16a34a' : P.blue, fontWeight: 700 }}>
+                            {pct}%
                           </span>
                         </div>
                         <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ 
-                            width: (() => {
-                               const progressArr = user?.courseProgress?.[course._id || course.id] || [];
-                               const totalModules = course.modules?.length || 1;
-                               const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
-                               return `${Math.min(pct, 100)}%`;
-                            })(), 
-                            height: '100%', background: `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3 
+                            width: `${pct}%`, 
+                            height: '100%', background: isCompleted ? 'linear-gradient(90deg, #22C55E, #43E97B)' : `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3,
+                            transition: 'width 0.4s ease'
                           }} />
                         </div>
                       </div>
@@ -224,7 +263,6 @@ export default function StudentCourses() {
 
           {/* ═══════════ Register Courses — Premium Section ═══════════ */}
           <div>
-            {/* Section Header with Gradient Accent */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{

@@ -9,6 +9,10 @@ export default function StudentCertificates() {
 
   const handlePrint = (courseTitle) => {
     const printWindow = window.open('', '', 'width=1000,height=700');
+    if (!printWindow) {
+      alert('Please allow popups to preview and print your certificate.');
+      return;
+    }
     printWindow.document.write(`
       <html>
         <head>

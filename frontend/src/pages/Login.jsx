@@ -35,7 +35,7 @@ export default function Login() {
     { name: 'Emily Davis', email: 'emily.davis@outlook.com', avatarBg: '#d83b01' }
   ];
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
 
   const handleSocialAccountSelect = async (providerEmail) => {
     setShowManageAccountModal(false);
@@ -178,14 +178,36 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const user = await login({ email: formData.email, password: formData.password, role: formData.role });
+      
+      // Strict role verification check
+      const userRole = (user?.role || '').toLowerCase();
+      const requestedRole = (formData.role || '').toLowerCase();
+      const isMismatched = 
+        (requestedRole === 'student' && userRole !== 'student') ||
+        (requestedRole === 'trainer' && userRole !== 'trainer') ||
+        (requestedRole === 'company' && userRole !== 'company' && userRole !== 'spoc');
+
+      if (isMismatched && userRole !== 'super admin' && userRole !== 'admin') {
+        if (logout) logout();
+        const displayRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+        setServerError(`Account role mismatch: This account is registered as a ${displayRole}. Please switch to the "${displayRole}" tab to sign in.`);
+        setIsSubmitting(false);
+        return;
+      }
+
       setIsSuccess(true);
       setTimeout(() => {
-        if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com') {
+        const role = (user?.role || formData.role || '').toLowerCase();
+        if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com' || role === 'super admin' || role === 'admin') {
           navigate('/admin');
+        } else if (role === 'trainer') {
+          navigate('/app/b/dashboard');
+        } else if (role === 'company' || role === 'spoc') {
+          navigate('/app/c/dashboard');
         } else {
-          navigate('/dashboard');
+          navigate('/app/a/dashboard');
         }
-      }, 1500);
+      }, 1000);
     } catch (err) {
       setServerError(err.message || 'Unable to connect to the server. Please check if the backend is running.');
     } finally {
@@ -368,6 +390,74 @@ export default function Login() {
                 )}
               </AnimatePresence>
 
+              {/* Role Selection Tabs & Dropdown */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '8px', background: '#f8fafc', padding: '5px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  {[
+                    { key: 'Student', label: 'Student', icon: '🎓' },
+                    { key: 'Trainer', label: 'Trainer', icon: '👨‍🏫' },
+                    { key: 'Company', label: 'Company', icon: '🏢' }
+                  ].map(item => {
+                    const isActive = formData.role === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, role: item.key }))}
+                        style={{
+                          padding: '10px 6px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          fontSize: '13px',
+                          fontWeight: isActive ? 800 : 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          background: isActive ? 'linear-gradient(135deg, #FF6B00, #FF9F43)' : 'transparent',
+                          color: isActive ? '#FFFFFF' : '#64748B',
+                          boxShadow: isActive ? '0 4px 12px rgba(255, 107, 0, 0.3)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span style={{ fontSize: '15px' }}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Additional Role Selector for other 7 roles */}
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={['Student', 'Trainer', 'Company'].includes(formData.role) ? '' : formData.role}
+                    onChange={(e) => { if (e.target.value) setFormData(prev => ({ ...prev, role: e.target.value })); }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: !['Student', 'Trainer', 'Company'].includes(formData.role) ? '1.5px solid #FF6B00' : '1px solid #E2E8F0',
+                      background: !['Student', 'Trainer', 'Company'].includes(formData.role) ? '#FFF7ED' : '#FAFAFA',
+                      color: !['Student', 'Trainer', 'Company'].includes(formData.role) ? '#C2410C' : '#64748B',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">More Roles: (Institute, College, Supervisor, Placement, Parent, etc.)</option>
+                    <option value="Industry Trainer">🏭 Industry Trainer / Specialist</option>
+                    <option value="Training Institute">🏛️ Training Institute</option>
+                    <option value="College">🏫 College / Academic Institute</option>
+                    <option value="Industry Supervisor">🔍 Industry Supervisor</option>
+                    <option value="Placement Officer">💼 Placement Officer</option>
+                    <option value="Parent">👨‍👩‍👧 Parent</option>
+                    <option value="Super Admin">🛡️ Super Admin / Admin</option>
+                  </select>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="login-credentials-form">
                 
                 {/* Email Input */}
@@ -384,7 +474,7 @@ export default function Login() {
                       id="email"
                       type="email"
                       name="email"
-                      placeholder="you@example.com"
+                      placeholder={formData.role === 'Student' ? 'student@example.com' : formData.role === 'Trainer' ? 'trainer@example.com' : 'hr@company.com'}
                       value={formData.email}
                       onChange={handleChange}
                       className={errors.email ? 'input-field-error' : ''}
@@ -426,19 +516,6 @@ export default function Login() {
 
                 {/* Options */}
                 <div className="login-form-options-redesigned">
-                  <label className="login-role-select-label">
-                    Login as
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      className="login-role-select"
-                    >
-                      <option value="Student">Student</option>
-                      <option value="Trainer">Trainer</option>
-                      <option value="Company">Company</option>
-                    </select>
-                  </label>
                   <label className="remember-me-checkbox-custom">
                     <input
                       type="checkbox"
@@ -458,8 +535,9 @@ export default function Login() {
                   type="submit"
                   disabled={isSubmitting}
                   className="login-submit-button-premium-orange ripple"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  {isSubmitting ? 'Signing In...' : 'Login'}
+                  {isSubmitting ? 'Signing In...' : `Login as ${formData.role}`}
                 </button>
               </form>
 

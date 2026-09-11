@@ -213,3 +213,55 @@ export function EmptyState({ icon, title, subtitle }) {
     </div>
   );
 }
+
+/* ─── Stat Card Alias ─── */
+export const StatCard = PremiumStatCard;
+
+/* ─── Progress Bar ─── */
+export function ProgressBar({ progress = 0, color = P.primary, height = 8 }) {
+  return (
+    <div style={{ width: '100%', height, borderRadius: height / 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div
+        style={{
+          width: `${Math.min(100, Math.max(0, progress))}%`,
+          height: '100%',
+          background: color.includes('gradient') ? color : `linear-gradient(90deg, ${color}, ${P.secondary})`,
+          borderRadius: height / 2,
+          transition: 'width 0.4s ease'
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─── Tab Pill Group ─── */
+export function TabPillGroup({ tabs = [], activeTab, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, background: 'rgba(91,92,255,0.06)', padding: 4, borderRadius: 12 }}>
+      {tabs.map((tab) => {
+        const key = typeof tab === 'object' ? tab.key : tab;
+        const label = typeof tab === 'object' ? tab.label : tab;
+        const isActive = activeTab === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 10,
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 13,
+              background: isActive ? P.primary : 'transparent',
+              color: isActive ? '#fff' : P.inkSoft,
+              transition: 'all 0.2s'
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

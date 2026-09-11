@@ -3,21 +3,37 @@ import { AuthContext } from './auth-context';
 
 const normalizeRole = (rawRole) => {
   if (!rawRole) return 'Student';
-  const normalized = rawRole.toString().trim().toLowerCase();
+  const normalized = rawRole.toString().trim().toLowerCase().replace(/[-_]/g, ' ');
   if (normalized === 'super admin' || normalized === 'superadmin' || normalized === 'admin') return 'Super Admin';
-  if (normalized === 'trainer') return 'Trainer';
-  if (normalized === 'company') return 'Company';
+  if (normalized === 'industry trainer') return 'Industry Trainer';
+  if (normalized === 'trainer' || normalized === 'guru') return 'Trainer';
+  if (normalized === 'training institute' || normalized === 'institute') return 'Training Institute';
+  if (normalized === 'college') return 'College';
+  if (normalized === 'industry supervisor' || normalized === 'supervisor') return 'Industry Supervisor';
+  if (normalized === 'company' || normalized === 'spoc') return 'Company';
+  if (normalized === 'placement officer' || normalized === 'placement') return 'Placement Officer';
+  if (normalized === 'parent') return 'Parent';
   return 'Student';
 };
 
 const defaultDashboardForRole = (role) => {
   switch (role) {
     case 'Trainer':
+    case 'Industry Trainer':
       return 'b';
     case 'Company':
+    case 'Industry Supervisor':
       return 'c';
     case 'Super Admin':
       return 'd';
+    case 'Training Institute':
+      return 'e';
+    case 'College':
+      return 'f';
+    case 'Placement Officer':
+      return 'g';
+    case 'Parent':
+      return 'h';
     default:
       return 'a';
   }
@@ -39,11 +55,11 @@ export function AuthProvider({ children }) {
     return storedUser ? normalizeUser(JSON.parse(storedUser)) : null;
   });
 
-  const login = async ({ email, password }) => {
+  const login = async ({ email, password, role }) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, role }),
     });
 
     let data;
@@ -94,3 +110,4 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+export { useAuth } from './useAuth';

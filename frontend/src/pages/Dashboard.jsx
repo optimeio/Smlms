@@ -957,9 +957,11 @@ export default function Dashboard() {
   const fetchCourses = async () => {
     try {
       const res = await fetch('/api/courses');
-      const data = await res.json();
-      if (data.success) {
-        setAllCourses(data.courses || []);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses)) {
+          setAllCourses(data.courses);
+        }
       }
     } catch (err) {
       console.error('Error fetching courses:', err);

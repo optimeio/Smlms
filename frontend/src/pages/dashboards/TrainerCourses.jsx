@@ -17,9 +17,11 @@ export default function TrainerCourses() {
     const fetchCourses = async () => {
       try {
         const res = await fetch('/api/courses');
-        const data = await res.json();
-        if (data.success) {
-          setCourses(data.courses);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.courses)) {
+            setCourses(data.courses);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch courses:', err);

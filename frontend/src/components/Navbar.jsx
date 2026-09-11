@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../state/useAuth';
 import '../styles/Navbar.css';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const { user, logout } = useAuth();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -31,7 +32,11 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    if (logout) {
+      logout();
+    } else {
+      localStorage.removeItem('user');
+    }
     window.location.href = '/login';
   };
 

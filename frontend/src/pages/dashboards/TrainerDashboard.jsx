@@ -19,15 +19,15 @@ export default function TrainerDashboard() {
           fetch('/api/users?role=student'),
           fetch(`/api/live-classes?trainerId=${user?._id || user?.id || user?.email}`)
         ]);
-        const courseData = await courseRes.json();
-        const studentData = await studentsRes.json();
-        const liveData = await liveRes.json();
+        const courseData = courseRes.ok ? await courseRes.json() : { success: false, courses: [] };
+        const studentData = studentsRes.ok ? await studentsRes.json() : { success: false, users: [] };
+        const liveData = liveRes.ok ? await liveRes.json() : { success: false, liveClasses: [] };
 
-        if (courseData.success) {
-          const myCourses = courseData.courses.filter(c => user.assignedCourses?.includes(c._id || c.id) || false);
+        if (courseData.success && Array.isArray(courseData.courses)) {
+          const myCourses = courseData.courses.filter(c => user?.assignedCourses?.includes(c._id || c.id) || false);
           setCourses(myCourses);
         }
-        if (studentData.success) {
+        if (studentData.success && Array.isArray(studentData.users)) {
           setStudentsCount(studentData.users.length);
         }
       } catch (err) {

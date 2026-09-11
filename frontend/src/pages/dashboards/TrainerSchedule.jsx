@@ -13,10 +13,12 @@ export default function TrainerSchedule() {
     const fetchCourses = async () => {
       try {
         const res = await fetch('/api/courses');
-        const data = await res.json();
-        if (data.success) {
-          const myCourses = data.courses.filter(c => user.assignedCourses?.includes(c._id || c.id) || false);
-          setCourses(myCourses);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.courses)) {
+            const myCourses = data.courses.filter(c => user?.assignedCourses?.includes(c._id || c.id) || false);
+            setCourses(myCourses);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch courses:', err);

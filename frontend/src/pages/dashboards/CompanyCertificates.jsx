@@ -20,8 +20,10 @@ export default function CompanyCertificates() {
     try {
       const res = await fetch('/api/certificates');
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.certificates)) {
         setCertificates(data.certificates.filter(c => c.issuedBy === user?.email));
+      } else {
+        setCertificates([]);
       }
     } catch (err) {
       console.error(err);

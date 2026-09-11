@@ -5,10 +5,28 @@ import { PremiumPage, PageHeader, GlassCard, PremiumStatCard, GradientButton, Ba
 import ProfileCompletionWidget from '../../components/ProfileCompletionWidget';
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [assignedCourses, setAssignedCourses] = useState([]);
   const [liveClasses, setLiveClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Sync user profile with server to guarantee up-to-date courseProgress
+  useEffect(() => {
+    const syncProfile = async () => {
+      const uId = user?.email || user?.id || user?._id;
+      if (!uId) return;
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(uId)}`);
+        const data = await res.json();
+        if (data.success && data.user) {
+          updateUser(data.user);
+        }
+      } catch (err) {
+        // silent sync fallback
+      }
+    };
+    syncProfile();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -20,19 +38,24 @@ export default function StudentDashboard() {
           fetch('/api/company-courses?status=approved'),
           fetch(`/api/live-classes?studentId=${user?._id || user?.id || user?.email}`)
         ]);
-        const coursesData = await coursesRes.json();
-        const companyCoursesData = await companyCoursesRes.json();
-        const liveData = await liveRes.json();
+        const coursesData = coursesRes.ok ? await coursesRes.json() : { success: false, courses: [] };
+        const companyCoursesData = companyCoursesRes.ok ? await companyCoursesRes.json() : { success: false, courses: [] };
+        const liveData = liveRes.ok ? await liveRes.json() : { success: false, liveClasses: [] };
         
         let allCourses = [];
-        if (coursesData.success) {
+        if (coursesData.success && Array.isArray(coursesData.courses)) {
           allCourses = [...allCourses, ...coursesData.courses];
         }
-        if (companyCoursesData.success) {
+        if (companyCoursesData.success && Array.isArray(companyCoursesData.courses)) {
           allCourses = [...allCourses, ...companyCoursesData.courses];
         }
 
-        const matched = allCourses.filter(c => user?.assignedCourses?.includes(c.title));
+        const matched = allCourses.filter(c => 
+          user?.assignedCourses?.includes(c.title) ||
+          user?.assignedCourses?.includes(c._id) ||
+          user?.assignedCourses?.includes(c.id) ||
+          user?.assignedCourses?.includes(String(c.id))
+        );
         // Remove duplicates by title in case both DBs have the same course title
         const uniqueMatched = [];
         const seenTitles = new Set();
@@ -54,12 +77,42 @@ export default function StudentDashboard() {
     fetchData();
   }, [user]);
 
+  // Robust progress calculation helper
+  const calculateCourseProgress = (c) => {
+    if (!c || !user) return 0;
+    if (user?.completedCourses?.includes(c.title)) return 100;
+
+    const p = 
+      user?.courseProgress?.[c._id] ??
+      user?.courseProgress?.[c.id] ??
+      user?.courseProgress?.[c.title] ??
+      user?.courseProgress?.[String(c._id)] ??
+      user?.courseProgress?.[String(c.id)];
+
+    if (typeof p === 'number') {
+      return Math.min(Math.max(Math.round(p), 0), 100);
+    }
+
+    if (Array.isArray(p)) {
+      let total = 0;
+      if (c.video) total++;
+      if (c.ppt) total++;
+      if (c.content && total === 0) total++;
+      if (c.modules && c.modules.length > 0) total = c.modules.length;
+      total = Math.max(total, 1);
+      return Math.min(Math.round((p.length / total) * 100), 100);
+    }
+    return 0;
+  };
+
+  const completedCoursesCount = assignedCourses.filter(c => calculateCourseProgress(c) === 100 || user?.completedCourses?.includes(c.title)).length;
+
   const stats = [
     { label: 'Enrolled Courses', value: assignedCourses.length.toString(), icon: <BookOpen size={24} />, from: '#5B5CFF', to: '#7C5CFF' },
     { label: "Today's Live Classes", value: liveClasses.length.toString(), icon: <Video size={24} />, from: '#FF5C8A', to: '#FF758C' },
     { label: 'Pending Assignments', value: '0', icon: <FileText size={24} />, from: '#F59E0B', to: '#FFC837' },
-    { label: 'Completed Courses', value: '0', icon: <CheckCircle size={24} />, from: '#22C55E', to: '#43E97B' },
-    { label: 'Certificates Earned', value: '0', icon: <GraduationCap size={24} />, from: '#4F8CFF', to: '#00C6FF' },
+    { label: 'Completed Courses', value: completedCoursesCount.toString(), icon: <CheckCircle size={24} />, from: '#22C55E', to: '#43E97B' },
+    { label: 'Certificates Earned', value: completedCoursesCount.toString(), icon: <GraduationCap size={24} />, from: '#4F8CFF', to: '#00C6FF' },
     { label: 'Notifications', value: '1', icon: <Bell size={24} />, from: '#8B5CF6', to: '#A78BFA' },
   ];
 
@@ -110,74 +163,71 @@ export default function StudentDashboard() {
 
         {/* Card 1: Courses */}
         <GlassCard style={{ display: 'flex', flexDirection: 'column' }}>
-          <SectionTitle action={<GradientButton variant="ghost" style={{ padding: '6px 12px', fontSize: 12 }}>View All</GradientButton>}>My Courses</SectionTitle>
+          <SectionTitle action={<GradientButton variant="ghost" onClick={() => window.location.href = '/app/a/courses'} style={{ padding: '6px 12px', fontSize: 12 }}>View All</GradientButton>}>My Courses</SectionTitle>
           {loading ? <p style={{ color: P.inkMute }}>Loading...</p> : assignedCourses.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {assignedCourses.slice(0, 3).map((c, i) => (
-                <div key={c._id || c.id} 
-                  onClick={() => window.location.href = `/app/player/${c._id || c.id}`}
-                  style={{
-                  display: 'flex', flexDirection: 'column', gap: 12, padding: 16,
-                  background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
-                  borderRadius: P.radiusMd, cursor: 'pointer',
-                  border: `1px solid ${P.border}`,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.02), inset 0 2px 0 rgba(255,255,255,0.8)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  position: 'relative', overflow: 'hidden'
-                }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
-                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,1)';
-                    e.currentTarget.style.borderColor = P.blue;
+              {assignedCourses.slice(0, 3).map((c, i) => {
+                const pct = calculateCourseProgress(c);
+                const isCompleted = pct === 100 || user?.completedCourses?.includes(c.title);
+                return (
+                  <div key={c._id || c.id} 
+                    onClick={() => window.location.href = `/app/player/${encodeURIComponent(c._id || c.id || c.title)}`}
+                    style={{
+                    display: 'flex', flexDirection: 'column', gap: 12, padding: 16,
+                    background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+                    borderRadius: P.radiusMd, cursor: 'pointer',
+                    border: `1px solid ${P.border}`,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.02), inset 0 2px 0 rgba(255,255,255,0.8)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative', overflow: 'hidden'
                   }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02), inset 0 2px 0 rgba(255,255,255,0.8)';
-                    e.currentTarget.style.borderColor = P.border;
-                  }}
-                >
-                  <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: `linear-gradient(to bottom, ${P.blue}, #00C6FF)` }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, rgba(91,92,255,0.1), rgba(0,198,255,0.1))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.blue, flexShrink: 0, border: '1px solid rgba(91,92,255,0.2)' }}>
-                      <BookOpen size={22} />
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+                      e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,1)';
+                      e.currentTarget.style.borderColor = P.blue;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02), inset 0 2px 0 rgba(255,255,255,0.8)';
+                      e.currentTarget.style.borderColor = P.border;
+                    }}
+                  >
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: `linear-gradient(to bottom, ${isCompleted ? '#22C55E' : P.blue}, #00C6FF)` }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, rgba(91,92,255,0.1), rgba(0,198,255,0.1))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCompleted ? '#22C55E' : P.blue, flexShrink: 0, border: '1px solid rgba(91,92,255,0.2)' }}>
+                        <BookOpen size={22} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</p>
+                          {isCompleted && <span style={{ fontSize: 11, background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>Done</span>}
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: 13, color: P.inkSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.content || c.description || 'Course materials & lectures'}</p>
+                      </div>
+                      <div style={{ background: '#f1f5f9', padding: '6px', borderRadius: '50%', color: P.inkSoft }}>
+                        <ChevronRight size={18} />
+                      </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 13, color: P.inkSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.content || c.description || 'Course materials & lectures'}</p>
-                    </div>
-                    <div style={{ background: '#f1f5f9', padding: '6px', borderRadius: '50%', color: P.inkSoft }}>
-                      <ChevronRight size={18} />
+                    
+                    {/* Dynamic Progress Bar */}
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, fontWeight: 600, color: P.inkMute }}>
+                        <span>Course Progress</span>
+                        <span style={{ color: isCompleted ? '#16a34a' : P.blue, fontWeight: 700 }}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ 
+                          width: `${pct}%`, 
+                          height: '100%', background: isCompleted ? 'linear-gradient(90deg, #22C55E, #43E97B)' : `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3,
+                          transition: 'width 0.4s ease'
+                        }} />
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Dynamic Progress Bar */}
-                  <div style={{ marginTop: 4 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, fontWeight: 600, color: P.inkMute }}>
-                      <span>Course Progress</span>
-                      <span style={{ color: P.blue }}>
-                        {(() => {
-                           const progressArr = user?.courseProgress?.[c._id || c.id] || [];
-                           const totalModules = c.modules?.length || 1;
-                           // Calculate percentage based on completed modules, fallback to 0
-                           const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
-                           return `${Math.min(pct, 100)}%`;
-                        })()}
-                      </span>
-                    </div>
-                    <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ 
-                        width: (() => {
-                           const progressArr = user?.courseProgress?.[c._id || c.id] || [];
-                           const totalModules = c.modules?.length || 1;
-                           const pct = progressArr.length > 0 ? Math.round((progressArr.length / totalModules) * 100) : 0;
-                           return `${Math.min(pct, 100)}%`;
-                        })(), 
-                        height: '100%', background: `linear-gradient(90deg, ${P.blue}, #00C6FF)`, borderRadius: 3 
-                      }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : <EmptyState icon={<BookOpen size={48} />} title="No enrolled courses" subtitle="Browse courses to get started" />}
         </GlassCard>

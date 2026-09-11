@@ -29,9 +29,9 @@ export default function AdminCourses() {
   
   useEffect(() => {
     fetch('/api/courses')
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : { success: false, courses: [] })
       .then(data => {
-        if (data.success && data.courses.length > 0) {
+        if (data.success && data.courses && data.courses.length > 0) {
           setCourses(data.courses);
         } else {
           // Mock data

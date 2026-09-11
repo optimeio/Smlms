@@ -51,7 +51,7 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     fetch('/api/requests')
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : { success: false, requests: [] })
       .then(data => {
         if (data.success) {
           setRequests(data.requests);
@@ -60,7 +60,7 @@ export default function SuperAdminDashboard() {
       .catch(err => console.error(err));
 
     fetch('/api/company-courses?status=pending')
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : { success: false, courses: [] })
       .then(data => {
         if (data.success) {
           setPendingCourses(data.courses);

@@ -212,6 +212,9 @@ export default function Courses() {
     async function getCourses() {
       try {
         const res = await fetch('/api/courses');
+        if (!res.ok) {
+          throw new Error(`Server returned status ${res.status}`);
+        }
         const data = await res.json();
         if (data.success && data.courses && data.courses.length > 0) {
           const mappedDb = data.courses.map((c, idx) => ({
@@ -231,7 +234,7 @@ export default function Courses() {
           setCoursesList(coursesData);
         }
       } catch (err) {
-        console.error('Failed to fetch courses:', err);
+        console.error('Failed to fetch courses:', err.message || err);
         setCoursesList(coursesData);
       }
     }

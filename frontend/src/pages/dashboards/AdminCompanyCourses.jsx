@@ -10,9 +10,11 @@ export default function AdminCompanyCourses() {
   const fetchCourses = async () => {
     try {
       const res = await fetch('/api/company-courses'); // Fetch all, not just pending
-      const data = await res.json();
-      if (data.success) {
-        setCourses(data.courses);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses)) {
+          setCourses(data.courses);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch company courses:', err);

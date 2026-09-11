@@ -17,11 +17,11 @@ export default function AdminEnrolledCourses() {
           fetch('/api/admin/users'),
           fetch('/api/courses')
         ]);
-        const userData = await userRes.json();
-        const courseData = await courseRes.json();
+        const userData = userRes.ok ? await userRes.json() : { success: false, users: [] };
+        const courseData = courseRes.ok ? await courseRes.json() : { success: false, courses: [] };
         
-        if (userData.success) setUsers(userData.users || []);
-        if (courseData.success) setCourses(courseData.courses || []);
+        if (userData.success && Array.isArray(userData.users)) setUsers(userData.users);
+        if (courseData.success && Array.isArray(courseData.courses)) setCourses(courseData.courses);
       } catch (err) {
         console.error('Failed to fetch data:', err);
       } finally {

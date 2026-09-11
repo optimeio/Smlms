@@ -18,12 +18,14 @@ import ForgotPassword from './pages/ForgotPassword';
 import OTPVerification from './pages/OTPVerification';
 import ResetPassword from './pages/ResetPassword';
 import AdminPortal from './pages/AdminPortal';
+import CertificateVerification from './pages/CertificateVerification';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardShell from './components/DashboardShell';
 import DashboardLanding from './pages/DashboardLanding';
 import ProfilePage from './pages/ProfilePage';
 import UserDirectory from './pages/UserDirectory';
 
+// Student Dashboards & SkillOS
 const StudentDashboard = lazy(() => import('./pages/dashboards/StudentDashboard'));
 const StudentJobOffers = lazy(() => import('./pages/dashboards/StudentJobOffers'));
 const StudentSettings = lazy(() => import('./pages/dashboards/StudentSettings'));
@@ -31,11 +33,29 @@ const StudentCourses = lazy(() => import('./pages/dashboards/StudentCourses'));
 const CoursePlayer = lazy(() => import('./pages/dashboards/CoursePlayer'));
 const StudentLiveClasses = lazy(() => import('./pages/dashboards/StudentLiveClasses'));
 const StudentCertificates = lazy(() => import('./pages/dashboards/StudentCertificates'));
+const StudentAssignments = lazy(() => import('./pages/dashboards/StudentAssignments'));
+const StudentSkillProgression = lazy(() => import('./pages/dashboards/StudentSkillProgression'));
+const StudentProjectsPortfolio = lazy(() => import('./pages/dashboards/StudentProjectsPortfolio'));
+const StudentAttendance = lazy(() => import('./pages/dashboards/StudentAttendance'));
+const StudentSkillPassport = lazy(() => import('./pages/dashboards/StudentSkillPassport'));
+const StudentAIAssistant = lazy(() => import('./pages/dashboards/StudentAIAssistant'));
+
+// Trainer & Industry Trainer
 const TrainerDashboard = lazy(() => import('./pages/dashboards/TrainerDashboard'));
 const TrainerCourses = lazy(() => import('./pages/dashboards/TrainerCourses'));
 const TrainerSchedule = lazy(() => import('./pages/dashboards/TrainerSchedule'));
 const TrainerLiveClasses = lazy(() => import('./pages/dashboards/TrainerLiveClasses'));
 const TrainerAttendance = lazy(() => import('./pages/dashboards/TrainerAttendance'));
+const TrainerAssignments = lazy(() => import('./pages/dashboards/TrainerAssignments'));
+const TrainerMaterials = lazy(() => import('./pages/dashboards/TrainerMaterials'));
+const TrainerReports = lazy(() => import('./pages/dashboards/TrainerReports'));
+const TrainerMessages = lazy(() => import('./pages/dashboards/TrainerMessages'));
+const TrainerNotifications = lazy(() => import('./pages/dashboards/TrainerNotifications'));
+const TrainerSettings = lazy(() => import('./pages/dashboards/TrainerSettings'));
+const TrainerProjectEvaluations = lazy(() => import('./pages/dashboards/TrainerProjectEvaluations'));
+const TrainerAIAssistant = lazy(() => import('./pages/dashboards/TrainerAIAssistant'));
+
+// Company & Industry Supervisor
 const SpocDashboard = lazy(() => import('./pages/dashboards/SpocDashboard'));
 const CompanyCourses = lazy(() => import('./pages/dashboards/CompanyCourses'));
 const CompanyJobOffers = lazy(() => import('./pages/dashboards/CompanyJobOffers'));
@@ -46,17 +66,12 @@ const CompanyTrainers = lazy(() => import('./pages/dashboards/CompanyTrainers'))
 const RegisterTrainer = lazy(() => import('./pages/dashboards/RegisterTrainer'));
 const CompanyNotifications = lazy(() => import('./pages/dashboards/CompanyNotifications'));
 const CompanySettings = lazy(() => import('./pages/dashboards/CompanySettings'));
+const CompanyInternships = lazy(() => import('./pages/dashboards/CompanyInternships'));
+const SupervisorEvaluations = lazy(() => import('./pages/dashboards/SupervisorEvaluations'));
+
+// Super Admin
 const SuperAdminDashboard = lazy(() => import('./pages/dashboards/SuperAdminDashboard'));
 const AdminLiveClasses = lazy(() => import('./pages/dashboards/AdminLiveClasses'));
-
-const StudentAssignments = lazy(() => import('./pages/dashboards/StudentAssignments'));
-const TrainerAssignments = lazy(() => import('./pages/dashboards/TrainerAssignments'));
-const TrainerMaterials = lazy(() => import('./pages/dashboards/TrainerMaterials'));
-const TrainerReports = lazy(() => import('./pages/dashboards/TrainerReports'));
-const TrainerMessages = lazy(() => import('./pages/dashboards/TrainerMessages'));
-const TrainerNotifications = lazy(() => import('./pages/dashboards/TrainerNotifications'));
-const TrainerSettings = lazy(() => import('./pages/dashboards/TrainerSettings'));
-
 const AdminUsers = lazy(() => import('./pages/dashboards/AdminUsers'));
 const AdminEnrolledCourses = lazy(() => import('./pages/dashboards/AdminEnrolledCourses'));
 const AdminSpoc = lazy(() => import('./pages/dashboards/AdminSpoc'));
@@ -75,6 +90,11 @@ const AdminAudit = lazy(() => import('./pages/dashboards/AdminAudit'));
 const AdminProfile = lazy(() => import('./pages/dashboards/AdminProfile'));
 const AdminUserDirectory = lazy(() => import('./pages/dashboards/AdminUserDirectory'));
 
+// Multi-Stakeholder Dashboards (e, f, g, h)
+const InstituteDashboard = lazy(() => import('./pages/dashboards/InstituteDashboard'));
+const CollegeDashboard = lazy(() => import('./pages/dashboards/CollegeDashboard'));
+const PlacementDashboard = lazy(() => import('./pages/dashboards/PlacementDashboard'));
+const ParentDashboard = lazy(() => import('./pages/dashboards/ParentDashboard'));
 
 const PlaceholderPage = ({ title, description = 'This page is currently under construction.' }) => {
   const location = window.location.pathname;
@@ -103,12 +123,28 @@ const DashboardRedirect = () => {
     case 'student':
       return <Navigate to="/app/a/dashboard" replace />;
     case 'trainer':
+    case 'industry trainer':
+    case 'guru':
       return <Navigate to="/app/b/dashboard" replace />;
     case 'spoc':
     case 'company':
+    case 'industry supervisor':
       return <Navigate to="/app/c/dashboard" replace />;
     case 'superadmin':
+    case 'super admin':
+    case 'admin':
       return <Navigate to="/app/d/dashboard" replace />;
+    case 'training institute':
+    case 'institute':
+      return <Navigate to="/app/e/dashboard" replace />;
+    case 'college':
+      return <Navigate to="/app/f/dashboard" replace />;
+    case 'placement officer':
+    case 'placement':
+      return <Navigate to="/app/g/dashboard" replace />;
+    case 'parent':
+    case 'guardian':
+      return <Navigate to="/app/h/dashboard" replace />;
     default:
       return <Navigate to="/app/a/dashboard" replace />;
   }
@@ -150,6 +186,8 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/otp-verification" element={<OTPVerification />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify/:certId" element={<CertificateVerification />} />
+        <Route path="/verify" element={<CertificateVerification />} />
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/admin" element={<AdminPortal />} />
         <Route
@@ -161,9 +199,16 @@ export default function App() {
           }
         >
           <Route index element={<DashboardLanding />} />
+          
+          {/* A: Student Route Group */}
           <Route path="a">
             <Route index element={<StudentDashboard />} />
             <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="skills" element={<StudentSkillProgression />} />
+            <Route path="projects" element={<StudentProjectsPortfolio />} />
+            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="passport" element={<StudentSkillPassport />} />
+            <Route path="ai-assistant" element={<StudentAIAssistant />} />
             <Route path="courses" element={<StudentCourses />} />
             <Route path="live" element={<StudentLiveClasses />} />
             <Route path="assignments" element={<StudentAssignments />} />
@@ -177,10 +222,14 @@ export default function App() {
             <Route path="*" element={<PlaceholderPage />} />
           </Route>
           <Route path="player/:courseId" element={<CoursePlayer />} />
+
+          {/* B: Trainer & Industry Trainer Route Group */}
           <Route path="b">
             <Route index element={<TrainerDashboard />} />
             <Route path="dashboard" element={<TrainerDashboard />} />
             <Route path="courses" element={<TrainerCourses />} />
+            <Route path="evaluations" element={<TrainerProjectEvaluations />} />
+            <Route path="ai-assistant" element={<TrainerAIAssistant />} />
             <Route path="students" element={<UserDirectory role="student" title="Students" subtitle="Browse student records, enrollment status, and academic details." />} />
             <Route path="schedule" element={<TrainerSchedule />} />
             <Route path="live" element={<TrainerLiveClasses />} />
@@ -194,10 +243,14 @@ export default function App() {
             <Route path="settings" element={<TrainerSettings />} />
             <Route path="*" element={<PlaceholderPage />} />
           </Route>
+
+          {/* C: Company & Industry Supervisor Route Group */}
           <Route path="c">
             <Route index element={<SpocDashboard />} />
             <Route path="dashboard" element={<SpocDashboard />} />
             <Route path="jobs" element={<CompanyJobOffers />} />
+            <Route path="internships" element={<CompanyInternships />} />
+            <Route path="evaluations" element={<SupervisorEvaluations />} />
             <Route path="courses" element={<CompanyCourses />} />
             <Route path="live" element={<CompanyLiveClasses />} />
             <Route path="assignments" element={<CompanyAssignments />} />
@@ -209,6 +262,8 @@ export default function App() {
             <Route path="settings" element={<CompanySettings />} />
             <Route path="*" element={<PlaceholderPage />} />
           </Route>
+
+          {/* D: Super Admin Route Group */}
           <Route path="d">
             <Route index element={<SuperAdminDashboard />} />
             <Route path="dashboard" element={<SuperAdminDashboard />} />
@@ -232,6 +287,63 @@ export default function App() {
             <Route path="documents" element={<AdminDocuments />} />
             <Route path="audit" element={<AdminAudit />} />
             <Route path="profile" element={<AdminProfile />} />
+            <Route path="*" element={<PlaceholderPage />} />
+          </Route>
+
+          {/* E: Training Institute Route Group */}
+          <Route path="e">
+            <Route index element={<InstituteDashboard />} />
+            <Route path="dashboard" element={<InstituteDashboard />} />
+            <Route path="batches" element={<InstituteDashboard />} />
+            <Route path="labs" element={<InstituteDashboard />} />
+            <Route path="trainers" element={<UserDirectory role="trainer" title="Institute Trainers" subtitle="Browse assigned training faculty & gurus." />} />
+            <Route path="students" element={<UserDirectory role="student" title="Enrolled Trainees" subtitle="Browse student roster & attendance stats." />} />
+            <Route path="attendance" element={<AdminAttendance />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<AdminSystem />} />
+            <Route path="*" element={<PlaceholderPage />} />
+          </Route>
+
+          {/* F: Partner College Route Group */}
+          <Route path="f">
+            <Route index element={<CollegeDashboard />} />
+            <Route path="dashboard" element={<CollegeDashboard />} />
+            <Route path="departments" element={<CollegeDashboard />} />
+            <Route path="placement" element={<CollegeDashboard />} />
+            <Route path="students" element={<UserDirectory role="student" title="College Student Body" subtitle="Departmental student roster and SkillOS profiles." />} />
+            <Route path="attendance" element={<AdminAttendance />} />
+            <Route path="projects" element={<TrainerProjectEvaluations />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<AdminSystem />} />
+            <Route path="*" element={<PlaceholderPage />} />
+          </Route>
+
+          {/* G: Placement Officer Route Group */}
+          <Route path="g">
+            <Route index element={<PlacementDashboard />} />
+            <Route path="dashboard" element={<PlacementDashboard />} />
+            <Route path="matching" element={<PlacementDashboard />} />
+            <Route path="interviews" element={<PlacementDashboard />} />
+            <Route path="analytics" element={<PlacementDashboard />} />
+            <Route path="jobs" element={<CompanyJobOffers />} />
+            <Route path="students" element={<UserDirectory role="student" title="Eligible Candidates" subtitle="Search candidates by SPI score and readiness tier." />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<AdminSystem />} />
+            <Route path="*" element={<PlaceholderPage />} />
+          </Route>
+
+          {/* H: Parent & Guardian Route Group */}
+          <Route path="h">
+            <Route index element={<ParentDashboard />} />
+            <Route path="dashboard" element={<ParentDashboard />} />
+            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="passport" element={<StudentSkillPassport />} />
+            <Route path="courses" element={<StudentCourses />} />
+            <Route path="certificates" element={<StudentCertificates />} />
+            <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<PlaceholderPage />} />
           </Route>
         </Route>

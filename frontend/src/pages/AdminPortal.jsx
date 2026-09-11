@@ -433,9 +433,11 @@ export default function AdminPortal() {
   const fetchCourses = async () => {
     try {
       const res = await fetch('/api/courses');
-      const data = await res.json();
-      if (data.success) {
-        setCourses(data.courses || []);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses)) {
+          setCourses(data.courses);
+        }
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
@@ -445,9 +447,11 @@ export default function AdminPortal() {
   const fetchContactRequests = async () => {
     try {
       const res = await fetch('/api/admin/access-requests');
-      const data = await res.json();
-      if (data.success) {
-        setContactRequests(data.requests || []);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.requests)) {
+          setContactRequests(data.requests);
+        }
       }
     } catch (err) {
       console.error('Error fetching contact requests:', err);

@@ -48,18 +48,22 @@ export default function UserDirectory({ role, title, subtitle }) {
       setError(null);
       try {
         const response = await fetch(`/api/users?role=${role}`);
-        const data = await response.json();
-        if (data.success) {
-          setUsers(data.users);
-        } else {
-          setError(data.message || 'Failed to fetch users');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.users)) {
+            setUsers(data.users);
+          } else {
+            setError(data.message || 'Failed to fetch users');
+          }
         }
 
         if (isAdmin && role === 'student') {
           const courseRes = await fetch('/api/courses');
-          const courseData = await courseRes.json();
-          if (courseData.success) {
-            setCourses(courseData.courses);
+          if (courseRes.ok) {
+            const courseData = await courseRes.json();
+            if (courseData.success && Array.isArray(courseData.courses)) {
+              setCourses(courseData.courses);
+            }
           }
         }
         

@@ -18,7 +18,10 @@ function initializeDriveService() {
     }
     
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
-    const {client_secret, client_id, redirect_uris} = credentials.installed;
+    const creds = credentials.installed || credentials.web || credentials;
+    const client_secret = creds.client_secret;
+    const client_id = creds.client_id;
+    const redirect_uris = creds.redirect_uris || ['http://localhost'];
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
     const token = JSON.parse(fs.readFileSync(TOKEN_PATH));

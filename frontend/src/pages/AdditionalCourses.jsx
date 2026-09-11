@@ -19,8 +19,11 @@ export default function AdditionalCourses() {
     const fetchApprovedCourses = async () => {
       try {
         const res = await fetch('/api/company-courses');
+        if (!res.ok) {
+          throw new Error(`Server returned status ${res.status}`);
+        }
         const data = await res.json();
-        if (data.success) {
+        if (data.success && Array.isArray(data.courses)) {
           const approvedCourses = data.courses.filter(c => c.status === 'approved');
           // Remove duplicates by course title
           const uniqueCourses = [];
@@ -34,7 +37,7 @@ export default function AdditionalCourses() {
           setCourses(uniqueCourses);
         }
       } catch (err) {
-        console.error('Failed to fetch additional courses:', err);
+        console.error('Failed to fetch additional courses:', err.message || err);
       } finally {
         setLoading(false);
       }

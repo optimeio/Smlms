@@ -57,17 +57,15 @@ export default function AdminLiveClasses() {
         fetch('/api/live-classes')
       ]);
 
-      const [coursesData, trainersData, studentsData, liveData] = await Promise.all([
-        coursesRes.json(),
-        trainersRes.json(),
-        studentsRes.json(),
-        liveRes.json()
-      ]);
+      const coursesData = coursesRes.ok ? await coursesRes.json() : { success: false, courses: [] };
+      const trainersData = trainersRes.ok ? await trainersRes.json() : { success: false, users: [] };
+      const studentsData = studentsRes.ok ? await studentsRes.json() : { success: false, users: [] };
+      const liveData = liveRes.ok ? await liveRes.json() : { success: false, liveClasses: [] };
 
-      if (coursesData.success) setCourses(coursesData.courses);
-      if (trainersData.success) setTrainers(trainersData.users || []);
-      if (studentsData.success) setStudents(studentsData.users || []);
-      if (liveData.success) setLiveClasses(liveData.liveClasses);
+      if (coursesData.success && Array.isArray(coursesData.courses)) setCourses(coursesData.courses);
+      if (trainersData.success && Array.isArray(trainersData.users)) setTrainers(trainersData.users);
+      if (studentsData.success && Array.isArray(studentsData.users)) setStudents(studentsData.users);
+      if (liveData.success && Array.isArray(liveData.liveClasses)) setLiveClasses(liveData.liveClasses);
     } catch (err) {
       console.error('Failed to fetch admin live class data:', err);
     } finally {

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "skill-1",
+    "name": "PCB Design & Altium Schematic",
+    "category": "Hardware & Electronics",
+    "icon": "⚡",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "Design multi-layer PCBs, high-speed routing, component libraries, and fabrication files.",
+    "syllabus": [
+      "Component Footprints & Schematics",
+      "Layer Stackup & Routing Rules",
+      "Power Planes & EMI Filtering",
+      "Gerber & BOM Generation"
+    ]
+  },
+  {
+    "id": "skill-2",
+    "name": "Embedded Systems & ARM Microcontrollers",
+    "category": "Hardware & Electronics",
+    "icon": "🔌",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "Microcontroller programming in Embedded C, peripherals (I2C, SPI, UART, PWM), and FreeRTOS.",
+    "syllabus": [
+      "GPIO & Timer Architectures",
+      "Interrupt Service Routines",
+      "Hardware Protocol Drivers",
+      "RTOS Task Scheduling"
+    ]
+  },
+  {
+    "id": "skill-3",
+    "name": "Electric Vehicle Powertrain & BMS",
+    "category": "Automotive & EV",
+    "icon": "🚗",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "EV battery management systems, motor control inverter circuits, and regenerative braking.",
+    "syllabus": [
+      "Lithium-Ion Chemistry & Thermal Models",
+      "Active/Passive Cell Balancing",
+      "CAN Bus Telemetry",
+      "Inverter Space Vector PWM"
+    ]
+  },
+  {
+    "id": "skill-4",
+    "name": "Full Stack MERN & Cloud Architecture",
+    "category": "Software & Cloud",
+    "icon": "💻",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "React, Node.js, Express, MongoDB, RESTful API security, and AWS cloud deployment.",
+    "syllabus": [
+      "React Hooks & State Flow",
+      "REST APIs & JWT Security",
+      "Database Indexing & Aggregations",
+      "CI/CD & Cloud Hosting"
+    ]
+  },
+  {
+    "id": "skill-5",
+    "name": "IoT & Edge Computing with Sensor Networks",
+    "category": "IoT & Automation",
+    "icon": "📡",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "Connecting physical sensors to MQTT brokers, ESP32/Raspberry Pi edge nodes, and cloud telemetry.",
+    "syllabus": [
+      "Analog/Digital Sensor Interfacing",
+      "MQTT & HTTP Protocol Clients",
+      "Edge Filtering & Security",
+      "Cloud Dashboard Dashboards"
+    ]
+  },
+  {
+    "id": "skill-6",
+    "name": "Python, Machine Learning & Computer Vision",
+    "category": "Data & AI",
+    "icon": "🤖",
+    "levels": [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Industry Ready"
+    ],
+    "totalPoints": 1000,
+    "description": "Data processing with Pandas/NumPy, OpenCV vision models, and scikit-learn neural architectures.",
+    "syllabus": [
+      "Data Preprocessing Pipelines",
+      "Supervised & Unsupervised Models",
+      "Convolutional Vision Filters",
+      "Model Quantization & Inference"
+    ]
+  }
+]
