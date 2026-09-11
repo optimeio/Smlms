@@ -54,6 +54,9 @@ export function AuthProvider({ children }) {
     const storedUser = localStorage.getItem('user');
     return storedUser ? normalizeUser(JSON.parse(storedUser)) : null;
   });
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('token') || null;
+  });
 
   const login = async ({ email, password, role }) => {
     const response = await fetch('/api/auth/login', {
@@ -80,6 +83,42 @@ export function AuthProvider({ children }) {
       role: normalizedRole,
     });
 
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
+    setUser(normalizedUser);
+    return normalizedUser;
+  };
+
+  const loginWithGoogle = async ({ credential, requestedRole = 'Student' }) => {
+    const response = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential, requestedRole }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Google sign in failed');
+    }
+
+    const normalizedRole = normalizeRole(data.user.role);
+    const normalizedUser = normalizeUser({
+      ...data.user,
+      role: normalizedRole,
+    });
+
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+    }
+
     localStorage.setItem('user', JSON.stringify(normalizedUser));
     setUser(normalizedUser);
     return normalizedUser;
@@ -93,18 +132,34 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setUser(null);
+    setToken(null);
+  };
+
+  const authFetch = (url, options = {}) => {
+    const headers = {
+      ...(options.headers || {}),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return fetch(url, { ...options, headers });
   };
 
   const value = useMemo(
     () => ({
       user,
+      token,
       login,
+      loginWithGoogle,
       logout,
       updateUser,
+      authFetch,
       isAuthenticated: Boolean(user),
     }),
-    [user],
+    [user, token],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

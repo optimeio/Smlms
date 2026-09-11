@@ -115,7 +115,7 @@ const DashboardRedirect = () => {
   if (!user) return <Navigate to="/login" replace />;
   
   if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com') {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/app/d/dashboard" replace />;
   }
 
   const role = (user.role || '').toLowerCase();

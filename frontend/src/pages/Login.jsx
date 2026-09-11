@@ -199,7 +199,7 @@ export default function Login() {
       setTimeout(() => {
         const role = (user?.role || formData.role || '').toLowerCase();
         if (user.email === 'admin@smgroups.com' || user.email === 'thesmgroups@gmail.com' || role === 'super admin' || role === 'admin') {
-          navigate('/admin');
+          navigate('/app/d/dashboard');
         } else if (role === 'trainer') {
           navigate('/app/b/dashboard');
         } else if (role === 'company' || role === 'spoc') {

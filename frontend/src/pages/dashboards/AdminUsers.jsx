@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, GraduationCap, Users, BookOpen, Clock, Activity, MoreVertical, CheckCircle2, ChevronRight, Award } from 'lucide-react';
+import { getUserPhotoUrl, getInitials } from '../../utils/avatarHelper';
 import { PremiumPage, PageHeader, GlassCard, GradientButton, P } from '../../components/PremiumDesignSystem';
 
 const stats = [
@@ -105,8 +106,44 @@ export default function AdminUsers() {
                 <tr key={student._id} style={{ borderBottom: `1px solid ${P.border}`, transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '16px 0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5', fontWeight: 800 }}>
-                        {student.fullName ? student.fullName.charAt(0).toUpperCase() : 'S'}
+                      <div style={{ position: 'relative', width: 42, height: 42, flexShrink: 0 }}>
+                        {getUserPhotoUrl(student) ? (
+                          <img 
+                            src={getUserPhotoUrl(student)} 
+                            alt={student.fullName || 'Student'}
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '2px solid #c7d2fe',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="avatar-fallback"
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            display: getUserPhotoUrl(student) ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            fontWeight: 800,
+                            fontSize: 15,
+                            boxShadow: '0 2px 8px rgba(99,102,241,0.2)'
+                          }}
+                        >
+                          {getInitials(student.fullName, 'S')}
+                        </div>
                       </div>
                       <div>
                         <p style={{ margin: 0, fontWeight: 800, color: P.ink, fontSize: 15 }}>{student.fullName || 'Unknown'}</p>

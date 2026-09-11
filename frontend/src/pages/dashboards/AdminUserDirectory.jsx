@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Users, Mail, Phone, Building, Lock, Unlock, Search, Briefcase, Award, TrendingUp, Filter, Shield, Building2, MoreVertical, FileText } from 'lucide-react';
 import { useAuth } from '../../state/useAuth';
 import { generatePremiumResume } from '../../utils/resumeGenerator';
+import { getUserPhotoUrl, getInitials, getRoleGradient } from '../../utils/avatarHelper';
 import { AdminPage, AdminPageHeader, EnterpriseCard, AdminButton, AdminBadge, AdminSearch, A } from '../../components/AdminDesignSystem';
 
 const companyStats = [
@@ -198,12 +199,49 @@ export default function AdminUserDirectory({ role, title, subtitle }) {
             return (
               <EnterpriseCard key={user._id || user.email} hover={true} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F1F5F9', color: A.inkSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>
-                      {(user.fullName || user.companyName || 'U').charAt(0)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ position: 'relative', width: 50, height: 50, flexShrink: 0 }}>
+                      {getUserPhotoUrl(user) ? (
+                        <img 
+                          src={getUserPhotoUrl(user)} 
+                          alt={user.fullName || user.companyName || 'User'}
+                          style={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: role === 'company' ? 14 : '50%',
+                            objectFit: role === 'company' ? 'contain' : 'cover',
+                            background: '#f8fafc',
+                            border: `2px solid ${role === 'company' ? '#fed7aa' : role === 'trainer' ? '#bfdbfe' : '#bbf7d0'}`,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className="avatar-fallback"
+                        style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: role === 'company' ? 14 : '50%',
+                          background: getRoleGradient(role),
+                          color: '#ffffff',
+                          display: getUserPhotoUrl(user) ? 'none' : 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: 18,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                        }}
+                      >
+                        {getInitials(user.fullName || user.companyName)}
+                      </div>
                     </div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: A.ink }}>{user.fullName || user.companyName || 'User'}</h4>
+                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: A.ink }}>{user.fullName || user.companyName || 'User'}</h4>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                         <AdminBadge color={role === 'company' ? A.orange : role === 'trainer' ? A.blue : A.green}>
                           {role.charAt(0).toUpperCase() + role.slice(1)}

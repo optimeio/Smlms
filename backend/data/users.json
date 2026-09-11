@@ -1,5 +1,16 @@
 [
   {
+    "fullName": "Super Admin (SM Groups)",
+    "email": "thesmgroups@gmail.com",
+    "phone": "6369067085",
+    "password": "TSMGPVT@2026",
+    "role": "Super Admin",
+    "gender": "Male",
+    "district": "Salem",
+    "isApproved": true,
+    "createdAt": "2026-09-11T00:00:00.000Z"
+  },
+  {
     "fullName": "Test User",
     "email": "test_smg_1@example.com",
     "phone": "9876543210",
@@ -7,6 +18,8 @@
     "gender": "Male",
     "year": "I Year",
     "district": "Salem",
+    "profilePhoto": "1783659884656_profile_1783659884653.png",
+    "role": "student",
     "createdAt": "2026-06-17T06:28:17.862Z"
   },
   {
@@ -19,6 +32,8 @@
     "district": "Salem",
     "college": "Sona College of Technology",
     "department": "CSE",
+    "profilePhoto": "1783504997420_tharan.jpg",
+    "role": "student",
     "assignedCourses": [
       "Electric Vechicle",
       "Python",
@@ -41,6 +56,8 @@
     "district": "Mayiladuthurai",
     "college": "Coimbatore Institute of Technology",
     "department": "CIVIL",
+    "profilePhoto": "1783660524093_profile_1783660524089.png",
+    "role": "student",
     "assignedCourses": [],
     "createdAt": "2026-06-26T10:26:14.923Z"
   },
@@ -54,6 +71,8 @@
     "district": "Erode",
     "college": "PSG College of Technology",
     "department": "ECE",
+    "profilePhoto": "1783660950836_profile_1783660950828.png",
+    "role": "student",
     "assignedCourses": [
       "Python for Data Science"
     ],

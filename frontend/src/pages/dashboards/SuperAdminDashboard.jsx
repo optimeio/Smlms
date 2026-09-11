@@ -10,6 +10,7 @@ import {
   A,
   AdminBadge
 } from '../../components/AdminDesignSystem';
+import { getUserPhotoUrl, getInitials } from '../../utils/avatarHelper';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const chartData = [
@@ -223,8 +224,31 @@ export default function SuperAdminDashboard() {
                 requests.map(req => (
                   <div key={req._id || req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, border: `1px solid ${A.border}`, borderRadius: A.radiusSm, background: '#fff', transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = A.border; e.currentTarget.style.boxShadow = 'none'; }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F1F5F9', color: A.inkSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>
-                        {req.requesterName ? req.requesterName.charAt(0) : 'U'}
+                      <div style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
+                        {getUserPhotoUrl(req) ? (
+                          <img
+                            src={getUserPhotoUrl(req)}
+                            alt={req.requesterName || 'User'}
+                            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.req-avatar-fallback');
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="req-avatar-fallback"
+                          style={{
+                            width: 40, height: 40, borderRadius: '50%',
+                            background: '#F1F5F9', color: A.inkSoft,
+                            display: getUserPhotoUrl(req) ? 'none' : 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, fontSize: 14
+                          }}
+                        >
+                          {req.requesterName ? getInitials(req.requesterName) : 'U'}
+                        </div>
                       </div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../state/useAuth';
 import { BookOpen, FileText, Sparkles, UserCheck, MessageSquare, Phone, Mail, MapPin, Clock } from 'lucide-react';
 import { generatePremiumResume } from '../../utils/resumeGenerator';
+import { getUserPhotoUrl, getInitials } from '../../utils/avatarHelper';
 import { PremiumPage, PageHeader, GlassCard, GradientButton, Badge, P } from '../../components/PremiumDesignSystem';
 
 export default function CompanyTrainers() {
@@ -119,14 +120,44 @@ export default function CompanyTrainers() {
                   <GlassCard style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24 }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      <div style={{
-                        width: 60, height: 60, borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`,
-                        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 24, fontWeight: 800, flexShrink: 0,
-                        boxShadow: '0 8px 20px rgba(91,92,255,0.2)'
-                      }}>
-                        {trainer.fullName?.charAt(0) || trainer.email?.charAt(0)}
+                      <div style={{ position: 'relative', width: 60, height: 60, flexShrink: 0 }}>
+                        {getUserPhotoUrl(trainer) ? (
+                          <img 
+                            src={getUserPhotoUrl(trainer)} 
+                            alt={trainer.fullName || 'Trainer'}
+                            style={{
+                              width: 60,
+                              height: 60,
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '2px solid #bfdbfe',
+                              boxShadow: '0 8px 20px rgba(59,130,246,0.2)'
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="avatar-fallback"
+                          style={{
+                            width: 60,
+                            height: 60,
+                            borderRadius: '50%',
+                            background: `linear-gradient(135deg, ${P.primary}, ${P.secondary})`,
+                            color: '#fff',
+                            display: getUserPhotoUrl(trainer) ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 24,
+                            fontWeight: 800,
+                            boxShadow: '0 8px 20px rgba(91,92,255,0.2)'
+                          }}
+                        >
+                          {getInitials(trainer.fullName || trainer.email, 'T')}
+                        </div>
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <h3 style={{ margin: '0 0 6px 0', fontSize: 18, fontWeight: 800, color: P.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

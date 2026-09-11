@@ -762,7 +762,7 @@ export default function Register() {
         const formData = new FormData();
         // Add text fields
         const textFields = { ...trainerForm };
-        const fileFieldNames = ['resume', 'photo', 'expCertificate', 'aadharCard', 'panCard', 'bankDetails'];
+        const fileFieldNames = ['resume', 'photo', 'passportPhoto', 'liveSelfie', 'expCertificate', 'aadharCard', 'panCard', 'bankDetails', 'degreeCertificate', 'ndaAgreement'];
         fileFieldNames.forEach(f => delete textFields[f]);
         Object.keys(textFields).forEach(key => {
           if (textFields[key] !== null && textFields[key] !== undefined) {
